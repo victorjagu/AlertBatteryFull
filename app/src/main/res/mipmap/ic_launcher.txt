@@ -1,0 +1,1 @@
+subir imagen en .PNG como ic_launcher.png

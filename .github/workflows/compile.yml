@@ -1,0 +1,61 @@
+name: Compilar APK WearOS
+
+# Cancelar ejecuciones antiguas automáticamente
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+run-name: >-
+  ${{
+    github.event_name == 'workflow_dispatch'
+    && format('Compilación manual: {0}', github.event.inputs.motivo)
+    || format('Commit: {0}', github.event.head_commit.message)
+  }}
+  
+on:
+  push:
+    branches: [ "test" ]
+
+  workflow_dispatch:
+    inputs:
+      motivo:
+        description: "Título de la ejecución"
+        required: true
+        default: "Compilación manual"
+        type: string
+
+env:
+  NOMBRE_PROGRAMA: "TITLE_APP"
+  
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Descargar el código del repositorio
+      uses: actions/checkout@v4.2.2
+
+    - name: Configurar Java 17
+      uses: actions/setup-java@v5
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+
+    - name: Configurar Entorno Oficial de Gradle
+      uses: gradle/actions/setup-gradle@v4
+      with:
+        gradle-version: "8.6"
+
+    - name: Compilar APK (Debug)
+      run: gradle assembleDebug --no-daemon
+
+    - name: Renombrar archivo APK
+      run: mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/${{ env.NOMBRE_PROGRAMA }}.apk
+      
+    - name: Guardar y mostrar el APK generado
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.NOMBRE_PROGRAMA }}
+        path: "app/build/outputs/apk/debug/${{ env.NOMBRE_PROGRAMA }}.apk"
+        retention-days: 1
+        if-no-files-found: error

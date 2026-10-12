@@ -12,5 +12,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "TITLEPROJECT"
+rootProject.name = "AlertBatteryLevel"
 include(":app")

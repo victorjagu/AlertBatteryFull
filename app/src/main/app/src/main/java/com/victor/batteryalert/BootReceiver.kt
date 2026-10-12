@@ -11,7 +11,7 @@ class BootReceiver : BroadcastReceiver() {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
             
             // Abrimos el almacenamiento local para comprobar si el interruptor general estaba encendido
-            Corporate SharedPreferences = context.getSharedPreferences("BatteryAlertPrefs", Context.MODE_PRIVATE)
+            val prefs: SharedPreferences = context.getSharedPreferences("BatteryAlertPrefs", Context.MODE_PRIVATE)
             val isAppEnabled = prefs.getBoolean("app_enabled", false)
 
             // Si el usuario tenía la app encendida antes del reinicio, arrancamos el servicio

@@ -35,6 +35,21 @@ Each alert type (high and low) features independent multimedia channels that can
 * **Language:** Kotlin 1.9+
 * **UI Toolkit:** Jetpack Compose con Material Design 3
 
+## 📦 Installation via USB Cable (ADB)
+
+To install the generated APK directly from your computer to your phone via cable, make sure you have **Developer Options** and **USB Debugging** enabled on your Android device, then follow these steps:
+
+1. **Connect your device:** Plug your phone into your computer using a USB cable.
+2. **Verify connection:** Open your terminal and run the following command to ensure your device is recognized:
+   ```bash
+   adb devices
+   ```
+3. **Install the APK:** Navigate to the folder where the APK was downloaded and execute:
+   ```bash
+   adb install AlertBatteryLevel.apk
+   ```
+   *(Note: If you are updating an existing installation, use `adb install -r AlertBatteryLevel.apk` to reinstall and keep your saved settings).*
+
 ## 👤 Personal Project Policy
 
 This app is a **Personal Project**.

@@ -21,7 +21,7 @@ on:
       motivo:
         description: "Motivo de la ejecución"
         required: false
-        default: "Autodetectar"
+        default: ""
         type: string
 
 env:
@@ -34,21 +34,6 @@ jobs:
     steps:
     - name: Descargar el código del repositorio
       uses: actions/checkout@v4.2.2
-      with:
-        fetch-depth: 2 # Permite comparar con el cambio anterior para ver qué archivo mutó
-
-    - name: Detectar último archivo modificado
-      id: detect_file
-      run: |
-        # Buscamos el nombre del último archivo cambiado en el último commit
-        CHANGED_FILE=$(git log -1 --name-only --pretty=format: | head -n 1)
-        if [ -z "$CHANGED_FILE" ]; then
-          CHANGED_FILE="Multiple or unknown files"
-        fi
-        echo "file_name=$CHANGED_FILE" >> $GITHUB_OUTPUT
-        
-        # Si el usuario dejó el motivo por defecto, imprimimos el archivo en el log
-        echo "El archivo detectado de forma automática es: $CHANGED_FILE"
         
     - name: Configurar Java 17
       uses: actions/setup-java@v5

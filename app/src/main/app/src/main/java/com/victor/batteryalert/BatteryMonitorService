@@ -1,0 +1,255 @@
+package com.victor.alertbatterylevel
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.SharedPreferences
+import android.media.AudioManager
+import android.media.ToneGenerator
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.net.wifi.WifiInfo
+import android.net.wifi.WifiManager
+import android.os.BatteryManager
+import android.os.Build
+import android.os.IBinder
+import android.speech.tts.TextToSpeech
+import android.os.Vibrator
+import android.os.VibratorManager
+import android.os.VibrationEffect
+import androidx.core.app.NotificationCompat
+import java.util.Locale
+
+class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
+
+    private lateinit var batteryReceiver: BroadcastReceiver
+    private lateinit var prefs: SharedPreferences
+    private var tts: TextToSpeech? = null
+    private var isTtsInitialized = false
+
+    private val CHANNEL_ID = "BatteryMonitorChannel"
+    private val NOTIFICATION_ID = 1
+    private val ALERT_HIGH_ID = 2
+    private val ALERT_LOW_ID = 3
+
+    private var triggeredHigh = false
+    private var triggeredLow = false
+
+    override fun onCreate() {
+        super.onCreate()
+        prefs = getSharedPreferences("BatteryAlertPrefs", Context.MODE_PRIVATE)
+        tts = TextToSpeech(this, this)
+
+        createNotificationChannel()
+        startForeground(NOTIFICATION_ID, buildForegroundNotification())
+
+        batteryReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                if (intent.action == Intent.ACTION_BATTERY_CHANGED) {
+                    evaluarBateria(intent)
+                }
+            }
+        }
+        val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        registerReceiver(batteryReceiver, filter)
+    }
+
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            tts?.language = Locale.getDefault()
+            isTtsInitialized = true
+        }
+    }
+
+    private fun evaluarBateria(intent: Intent) {
+        val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+        val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+        val batteryPct = (level / scale.toFloat() * 100).toInt()
+
+        val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || 
+                         status == BatteryManager.BATTERY_STATUS_FULL
+
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        if (isCharging) {
+            triggeredLow = false
+            manager.cancel(ALERT_LOW_ID)
+
+            val highEnabled = prefs.getBoolean("high_enabled", false)
+            val highLevel = prefs.getInt("high_level", 100)
+
+            if (highEnabled && batteryPct >= highLevel) {
+                if (!triggeredHigh) {
+                    lanzarAlerta(true)
+                    triggeredHigh = true
+                }
+            } else if (batteryPct < highLevel) {
+                triggeredHigh = false
+            }
+        } else {
+            triggeredHigh = false
+            manager.cancel(ALERT_HIGH_ID)
+
+            val lowEnabled = prefs.getBoolean("low_enabled", false)
+            val lowLevel = prefs.getInt("low_level", 20)
+
+            if (lowEnabled && batteryPct <= lowLevel) {
+                if (!triggeredLow) {
+                    lanzarAlerta(false)
+                    triggeredLow = true
+                }
+            } else if (batteryPct > lowLevel) {
+                triggeredLow = false
+            }
+        }
+    }
+
+    private fun lanzarAlerta(isHigh: Boolean) {
+        val prefix = if (isHigh) "high_" else "low_"
+        
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val ringerMode = audioManager.ringerMode
+        val sonarSiempre = prefs.getBoolean("${prefix}always_sound", true)
+        
+        if (!sonarSiempre && ringerMode != AudioManager.RINGER_MODE_NORMAL) {
+            lanzarNotificacionVisual(isHigh)
+            return
+        }
+
+        val wifiFiltrado = prefs.getString("wifi_ssids", "") ?: ""
+        if (wifiFiltrado.isNotEmpty()) {
+            val currentSsid = getCurrentWifiSSID()
+            val listaSsids = wifiFiltrado.split(",").map { it.trim() }
+            if (currentSsid !in listaSsids) {
+                lanzarNotificacionVisual(isHigh)
+                return
+            }
+        }
+
+        lanzarNotificacionVisual(isHigh)
+
+        val volumenBeep = prefs.getFloat("${prefix}vol_beep", 0.5f)
+        val volumenVoz = prefs.getFloat("${prefix}vol_tts", 0.5f)
+
+        if (prefs.getBoolean("${prefix}use_beep", false)) {
+            reproducirBeep(volumenBeep)
+        }
+
+        if (prefs.getBoolean("${prefix}use_tts", false)) {
+            val mensajeVoz = prefs.getString("${prefix}msg_tts", "Aviso de batería") ?: ""
+            reproducirVoz(mensajeVoz, volumenVoz)
+        }
+
+        if (prefs.getBoolean("${prefix}use_vibrate", false)) {
+            ejecutarVibracion()
+        }
+    }
+
+    private fun lanzarNotificacionVisual(isHigh: Boolean) {
+        val prefix = if (isHigh) "high_" else "low_"
+        val idNotif = if (isHigh) ALERT_HIGH_ID else ALERT_LOW_ID
+        val titulo = if (isHigh) "BatteryAlert: Carga Completa" else "BatteryAlert: Batería Baja"
+        val msg = prefs.getString("${prefix}msg_notif", "Revisa el cargador") ?: ""
+
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_low_battery)
+            .setContentTitle(titulo)
+            .setContentText(msg)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(idNotif, builder.build())
+    }
+
+    private fun reproducirBeep(volumen: Float) {
+        try {
+            val volumeInt = (volumen * 100).toInt()
+            val toneGen = ToneGenerator(AudioManager.STREAM_ALARM, volumeInt)
+            toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 300)
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    private fun reproducirVoz(texto: String, volumen: Float) {
+        if (isTtsInitialized && tts != null) {
+            val params = android.os.Bundle()
+            params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, volumen)
+            tts?.speak(texto, TextToSpeech.QUEUE_FLUSH, params, "BatteryAlertTTS")
+        }
+    }
+
+    private fun ejecutarVibracion() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            val vibrator = vibratorManager.defaultVibrator
+            vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            @Suppress("DEPRECATION")
+            val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            vibrator.vibrate(500)
+        }
+    }
+
+    private fun getCurrentWifiSSID(): String {
+        val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = connectivityManager.activeNetwork ?: return ""
+        val caps = connectivityManager.getNetworkCapabilities(network) ?: return ""
+        
+        if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+            val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            val info: WifiInfo? = wifiManager.connectionInfo
+            if (info != null) {
+                var ssid = info.ssid
+                if (ssid.startsWith("\"") && ssid.endsWith("\"")) {
+                    ssid = ssid.substring(1, ssid.length - 1)
+                }
+                return ssid
+            }
+        }
+        return ""
+    }
+
+    private fun buildForegroundNotification(): Notification {
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("BatteryAlert Activo")
+            .setContentText("Vigilando el nivel de batería...")
+            .setSmallIcon(android.R.drawable.ic_menu_info_details)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .build()
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Monitor de Batería Servicio",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Canal para las alertas en segundo plano de BatteryAlert"
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            }
+            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.createNotificationChannel(channel)
+        }
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            unregisterReceiver(batteryReceiver)
+        } catch (e: Exception) { e.printStackTrace() }
+        
+        if (tts != null) {
+            tts?.stop()
+            tts?.shutdown()
+        }
+    }
+}

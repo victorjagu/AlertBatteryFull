@@ -4,12 +4,12 @@ name: Compilar APK AlertBatteryLevel
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
+  
 run-name: >-
   ${{
     github.event_name == 'workflow_dispatch'
-    && format('Compilación manual: {0}', github.event.inputs.motivo)
-    || format('Commit: {0}', github.event.head_commit.message)
+    && format('{0} ({1})', github.event.inputs.motivo || 'Compilación manual', github.event.inputs.build_type)
+    || github.event.head_commit.message
   }}
   
 on:
@@ -19,10 +19,18 @@ on:
   workflow_dispatch:
     inputs:
       motivo:
-        description: "Motivo de la ejecución"
+        description: "Título de la ejecución"
         required: false
-        default: ""
+        default: "Compilación manual"
         type: string
+      build_type:
+        description: "Tipo de compilación (Modo)"
+        required: true
+        default: "DEBUG"
+        type: choice
+        options:
+          - DEBUG
+          - RELEASE
 
 env:
   NOMBRE_PROGRAMA: "AlertBatteryLevel"
@@ -33,10 +41,10 @@ jobs:
 
     steps:
     - name: Descargar el código del repositorio
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v4
         
     - name: Configurar Java 17
-      uses: actions/setup-java@v5
+      uses: actions/setup-java@v6
       with:
         distribution: 'zulu'
         java-version: '17'
@@ -46,16 +54,54 @@ jobs:
       with:
         gradle-version: "8.6"
 
-    - name: Compilar APK (Debug)
-      run: gradle assembleDebug --no-daemon
+    # 1. Determinamos dinámicamente las variables según el evento o la selección del usuario
+    - name: Configurar variables de compilación
+      run: |
+        # Por defecto (ej. evento push), usamos debug
+        BUILD_TYPE="DEBUG"
+        GRADLE_TASK="assembleDebug"
+        APK_DIR="app/build/outputs/apk/debug"
+        ORIGINAL_APK="app-debug.apk"
+        
+        # Si es manual y eligieron RELEASE, cambiamos los valores
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.build_type }}" = "RELEASE" ]; then
+          BUILD_TYPE="RELEASE"
+          GRADLE_TASK="assembleRelease"
+          APK_DIR="app/build/outputs/apk/release"
+          ORIGINAL_APK="app-release-unsigned.apk" # Gradle genera este nombre por defecto para release no firmadas
+        fi
+        
+        # Guardamos las variables en el entorno de GitHub Actions
+        echo "GRADLE_TASK=$GRADLE_TASK" >> $GITHUB_ENV
+        echo "APK_DIR=$APK_DIR" >> $GITHUB_ENV
+        echo "ORIGINAL_APK=$ORIGINAL_APK" >> $GITHUB_ENV
+        echo "BUILD_TYPE=$BUILD_TYPE" >> $GITHUB_ENV
+
+    # Solución definitiva sin dependencias locales: Se usa el ejecutable global 'gradle'
+    - name: Compilar APK (${{ env.BUILD_TYPE }})
+      run: gradle ${{ env.GRADLE_TASK }} --no-daemon
 
     - name: Renombrar archivo APK
-      run: mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/${{ env.NOMBRE_PROGRAMA }}.apk
+      run: mv ${{ env.APK_DIR }}/${{ env.ORIGINAL_APK }} ${{ env.APK_DIR }}/${{ env.NOMBRE_PROGRAMA }}.apk
+
+    - name: Firmar APK
+      uses: r0adkll/sign-android-release@v1.0.4
+      with:
+        releaseDirectory: ${{ env.APK_DIR }}
+        signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
+        alias: ${{ secrets.KEY_ALIAS }}
+        keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
+        keyPassword: ${{ secrets.KEY_PASSWORD }}
+      env:
+        BUILD_TOOLS_VERSION: "34.0.0"
+
+    - name: Limpiar nombre del APK firmado
+      run: mv ${{ env.APK_DIR }}/${{ env.NOMBRE_PROGRAMA }}-signed.apk ${{ env.APK_DIR }}/${{ env.NOMBRE_PROGRAMA }}.apk
       
     - name: Guardar y mostrar el APK generado
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ env.NOMBRE_PROGRAMA }}
-        path: "app/build/outputs/apk/debug/${{ env.NOMBRE_PROGRAMA }}.apk"
+        name: ${{ env.NOMBRE_PROGRAMA }} (${{ env.BUILD_TYPE }})
+        path: "${{ env.APK_DIR }}/${{ env.NOMBRE_PROGRAMA }}"
         retention-days: 1
         if-no-files-found: error

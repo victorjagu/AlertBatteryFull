@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<adaptive-icon xmlns:android="http://android.com">
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Fondo del icono: Usaremos el color blanco por defecto del sistema -->
     <background android:drawable="@android:color/white" />
     <!-- Primer plano: Nuestra batería verde con el rayo -->
-    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <foreground android:drawable="@drawable/ic_launcher" />
 </adaptive-icon>

@@ -1,4 +1,4 @@
-name: Compilar APK AlertBatteryLevel
+name: Compilar APK
 
 # Cancelar ejecuciones antiguas automáticamente si haces varios commits seguidos
 concurrency:

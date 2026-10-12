@@ -102,6 +102,6 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.NOMBRE_PROGRAMA }} (${{ env.BUILD_TYPE }})
-        path: "${{ env.APK_DIR }}/${{ env.NOMBRE_PROGRAMA }}"
+        path: "${{ env.APK_DIR }}/${{ env.NOMBRE_PROGRAMA }}.apk"
         retention-days: 1
         if-no-files-found: error

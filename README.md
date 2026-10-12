@@ -1,46 +1,39 @@
-<h1 align="center">TITLE</h1>
+<h1 align="center">AlertBatteryLevel</h1>
 <p align="center">
-  <img src="app/src/main/res/mipmap/ic_launcher.png" width="256" alt="AppIcon">
+  <img src="app/src/main/res/drawable/ic_launcher.png" width="256" alt="AppIcon">
 </p>
 
-# TITLE
+# AlertBatteryLevel 🔋
 
-A high-performance, battery-optimized digital clock application designed specifically for Wear OS devices. Built entirely using **Kotlin** and **Jetpack Compose for Wear OS**, this standalone watch application provides a precise time display with seconds, featuring advanced lifecycle management and dynamic screen timeout configuration.
+A lightweight, efficient, and customizable application designed for mobile Android systems. Its main purpose is to alert the user when the battery reaches a minimum and/or maximum level so they can connect or disconnect the charger.
 
 ## 🚀 Key Features
 
-* **OLED-Optimized Dark Mode**: Features a pure black `#000000` background that turns off physical pixels on OLED screens to drastically reduce power consumption.
-* **Dynamic Screen-On Toggle**: Simple tap gestures allow the user to toggle between standard system timeout (White text) and persistent Ambient Screen-On mode (Dim Red text).
-* **Zero-Lag Startup**: Uses primitive native variables instead of traditional Compose States for critical Window Flags, completely removing activity initialization delays.
-* **Strict Battery Optimization**: Automatically halts UI recomposition and background coroutine timers the millisecond the application goes off-screen (`onPause`).
-* **Auto-Scale Typography**: Dynamically calculates the available horizontal viewport (`BoxWithConstraints`) to scale the font to the absolute maximum size without clipping or text wrapping.
-* **Aggressive Memory Management**: Clears residual process footprints and frees allocated RAM instantly upon exit (`android.os.Process.killProcess`).
+* **Master Switch:** Easily turn the entire monitoring service ON or OFF with a single tap from the dynamic interface header.
+* **Full Battery Alerte:** Triggers when reaching your custom percentage (e.g., 80% or 100%) **only while the device is charging**. The notification automatically dismisses itself when unplugging the charger.
+* **Low Battery Alert:** Triggers when dropping to your custom percentage **only while the device is discharging**. The notification automatically clears as soon as you plug in the charging cable.
+* **Privacy & Local Persistence:** All user settings are saved 100% locally using secure internal device storage (`SharedPreferences`).
 
-## 🛠️ Architecture & Architecture Highlights
+## 🛠 Advanced Customization Options
 
-The codebase is optimized for low-resource wearable chips, adhering to strict Wear OS lifecycle standards:
+Each alert type (high and low) features independent multimedia channels that can be toggled at will:
+* **Visual Message:** Customizable notifications that travel natively to your **smartwatch** via the Android system.
+* **Audio Beep:** Sound alerts with independent volume slider control.
+* **Voice Text-to-Speech (TTS):** Customizable voice alerts ("*Battery fully charged. Unplug me, please*") with independent volume control.
+* **Haptic Vibration:** Enabled or disabled according to your preference.
 
-* **Precise Sizing**: Uses standard monospace layout assumptions to fit `HH:mm:ss` inside any circular or rectangular Wear OS watch face dynamically.
-* **Lifecycle Awareness**: Coroutine scopes live strictly under the visible lifecycle of the UI (`LaunchedEffect(isAppVisible)`), safeguarding against battery drain when the screen is dimmed or covered.
-* **Swipe-to-Dismiss Protection**: Overrides `onStart` and `onPause` lifecycle hooks to clear window flags and prevent system-wide lockups when the user swipes to exit.
+## 🧠 Intelligent Filters & Conditions
+
+* **Respect System State:** Option to keep the app muted on Silent/Vibrate modes.
+* **Wi-Fi Network Filter (SSID):** Restricts alerts to permitted comma-separated Wi-Fi networks (e.g., home Wi-Fi).
+* **Background Resilience:** Includes battery optimization exclusion and `BootReceiver` for automatic restart after reboot.
 
 ## 📋 Requirements
 
-* **Minimum SDK**: Android API 26 (Wear OS 2.0 and above)
-* **Target SDK**: Android API 33+ (Wear OS 4.0+)
-* **Language**: Kotlin 1.9+
-* **UI Toolkit**: Jetpack Compose for Wear OS
-
-## 📦 Installation & Setup
-
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com
-   ```
-2. **Open in Android Studio**:
-   Import the project into Android Studio Flamingo (or newer).
-3. **Build & Run**:
-   Connect your Wear OS device via Wi-Fi ADB or launch a Wear OS emulator, then click **Run 'app'**.
+* **Min. SDK:** Android API 26 (Android 8.0+)
+* **Target SDK:** Android API 34 (Android 14)
+* **Language:** Kotlin 1.9+
+* **UI Toolkit:** Jetpack Compose con Material Design 3
 
 ## 👤 Personal Project Policy
 

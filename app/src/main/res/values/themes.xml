@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tema principal de la aplicación compatible con Material 3 -->
+    <style name="Theme.AlertBatteryLevel" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Colores primarios del sistema (se adaptarán en Compose) -->
+        <item name="colorPrimary">@android:color/holo_green_dark</item>
+        <item name="android:statusBarColor">?attr/colorSurface</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>

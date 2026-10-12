@@ -12,7 +12,9 @@ import android.content.SharedPreferences
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.net.ConnectivityManager
+import android.net.Network
 import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.os.BatteryManager
@@ -69,7 +71,7 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
             .build()
     
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            networkCallback = object : ConnectivityManager.NetworkCallback(FLAG_INCLUDE_LOCATION_INFO) {
+            networkCallback = object : ConnectivityManager.NetworkCallback(ConnectivityManager.NetworkCallback.FLAG_INCLUDE_LOCATION_INFO) {
                 override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
                     val wifiInfo = caps.transportInfo as? WifiInfo
                     if (wifiInfo != null) {

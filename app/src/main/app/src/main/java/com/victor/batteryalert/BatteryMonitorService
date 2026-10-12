@@ -31,6 +31,9 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
     private lateinit var prefs: SharedPreferences
     private var tts: TextToSpeech? = null
     private var isTtsInitialized = false
+    private lateinit var connectivityManager: ConnectivityManager
+    private lateinit var networkCallback: ConnectivityManager.NetworkCallback
+    private var currentSsid: String = ""
 
     private val CHANNEL_ID = "BatteryMonitorChannel"
     private val NOTIFICATION_ID = 1
@@ -43,24 +46,60 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
     override fun onCreate() {
         super.onCreate()
         prefs = getSharedPreferences("BatteryAlertPrefs", Context.MODE_PRIVATE)
-
-        // Crear el canal y pasar a primer plano de inmediato
-        createNotificationChannel()
     
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // Android 14 (API 34)
+        // Pasar a primer plano al instante (Evita el crash de los 5 segundos en Android 14)
+        createNotificationChannel()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(
-                NOTIFICATION_ID, 
-                buildForegroundNotification(), 
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                NOTIFICATION_ID,
+                buildForegroundNotification(),
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
             )
         } else {
             startForeground(NOTIFICATION_ID, buildForegroundNotification())
         }
-
-        // Inicializar el motor de TTS una vez que la app está a salvo en Foreground
+    
+        // Inicializar TextToSpeech de forma segura una vez en primer plano
         tts = TextToSpeech(this, this)
-
-        // Registrar el receptor de la batería de manera normal
+    
+        // Callback asíncrono para escuchar cambios en el SSID del Wi-Fi de forma moderna
+        connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val networkRequest = NetworkRequest.Builder()
+            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+            .build()
+    
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            networkCallback = object : ConnectivityManager.NetworkCallback(FLAG_INCLUDE_LOCATION_INFO) {
+                override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+                    val wifiInfo = caps.transportInfo as? WifiInfo
+                    if (wifiInfo != null) {
+                        var ssid = wifiInfo.ssid ?: ""
+                        if (ssid.startsWith("\"") && ssid.endsWith("\"")) {
+                            ssid = ssid.substring(1, ssid.length - 1)
+                        }
+                        currentSsid = ssid
+                    }
+                }
+                override fun onLost(network: Network) { currentSsid = "" }
+            }
+        } else {
+            networkCallback = object : ConnectivityManager.NetworkCallback() {
+                override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+                    val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+                    @Suppress("DEPRECATION")
+                    val info = wifiManager.connectionInfo
+                    var ssid = info?.ssid ?: ""
+                    if (ssid.startsWith("\"") && ssid.endsWith("\"")) {
+                        ssid = ssid.substring(1, ssid.length - 1)
+                    }
+                    currentSsid = ssid
+                }
+                override fun onLost(network: Network) { currentSsid = "" }
+            }
+        }
+        connectivityManager.registerNetworkCallback(networkRequest, networkCallback)
+    
+        // Escucha del estado de la batería
         batteryReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 if (intent.action == Intent.ACTION_BATTERY_CHANGED) {
@@ -137,7 +176,6 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
 
         val wifiFiltrado = prefs.getString("wifi_ssids", "") ?: ""
         if (wifiFiltrado.isNotEmpty()) {
-            val currentSsid = getCurrentWifiSSID()
             val listaSsids = wifiFiltrado.split(",").map { it.trim() }
             if (currentSsid !in listaSsids) {
                 lanzarNotificacionVisual(isHigh)
@@ -209,25 +247,6 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun getCurrentWifiSSID(): String {
-        val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val network = connectivityManager.activeNetwork ?: return ""
-        val caps = connectivityManager.getNetworkCapabilities(network) ?: return ""
-        
-        if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
-            val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-            val info: WifiInfo? = wifiManager.connectionInfo
-            if (info != null) {
-                var ssid = info.ssid
-                if (ssid.startsWith("\"") && ssid.endsWith("\"")) {
-                    ssid = ssid.substring(1, ssid.length - 1)
-                }
-                return ssid
-            }
-        }
-        return ""
-    }
-
     private fun buildForegroundNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("BatteryAlert Activo")
@@ -260,9 +279,14 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
             unregisterReceiver(batteryReceiver)
         } catch (e: Exception) { e.printStackTrace() }
         
+        try {
+            connectivityManager.unregisterNetworkCallback(networkCallback)
+        } catch (e: Exception) { e.printStackTrace() }
+        
         if (tts != null) {
             tts?.stop()
             tts?.shutdown()
         }
     }
+
 }

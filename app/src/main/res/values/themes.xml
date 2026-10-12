@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Tema principal de la aplicación compatible con Material 3 -->
-    <style name="Theme.AlertBatteryLevel" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Colores primarios del sistema (se adaptarán en Compose) -->
-        <item name="colorPrimary">@android:color/holo_green_dark</item>
-        <item name="android:statusBarColor">?attr/colorSurface</item>
-        <item name="android:windowLightStatusBar">true</item>
+    <!-- Tema nativo del dispositivo muy ligero, ideal para apps basadas en Jetpack Compose -->
+    <style name="Theme.AlertBatteryLevel" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+        <!-- Colores base estándar para el sistema operativo -->
+        <item name="android:colorPrimary">@android:color/holo_green_dark</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
     </style>
 </resources>

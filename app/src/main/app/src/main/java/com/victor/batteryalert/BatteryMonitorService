@@ -43,11 +43,24 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
     override fun onCreate() {
         super.onCreate()
         prefs = getSharedPreferences("BatteryAlertPrefs", Context.MODE_PRIVATE)
+
+        // Crear el canal y pasar a primer plano de inmediato
+        createNotificationChannel()
+    
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // Android 14 (API 34)
+            startForeground(
+                NOTIFICATION_ID, 
+                buildForegroundNotification(), 
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, buildForegroundNotification())
+        }
+
+        // Inicializar el motor de TTS una vez que la app está a salvo en Foreground
         tts = TextToSpeech(this, this)
 
-        createNotificationChannel()
-        startForeground(NOTIFICATION_ID, buildForegroundNotification())
-
+        // Registrar el receptor de la batería de manera normal
         batteryReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 if (intent.action == Intent.ACTION_BATTERY_CHANGED) {

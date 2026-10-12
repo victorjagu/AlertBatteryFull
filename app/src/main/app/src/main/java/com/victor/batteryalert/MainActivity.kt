@@ -30,19 +30,21 @@ class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ -> }
-
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = getSharedPreferences("BatteryAlertPrefs", Context.MODE_PRIVATE)
-
-        verificarYPedirPermisos()
-
+    
         setContent {
             MaterialTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
+                    // Ejecuta la petición de permisos de forma asíncrona una vez que la pantalla ya existe
+                    LaunchedEffect(Unit) {
+                        verificarYPedirPermisos()
+                    }
                     ScreenPrincipal()
                 }
             }
@@ -69,10 +71,20 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
             if (!pm.isIgnoringBatteryOptimizations(packageName)) {
-                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                    data = Uri.parse("package:$packageName")
+                try {
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    // Fallback seguro: Si el cuadro directo falla, abre el menú general de batería en vez de crashear
+                    try {
+                        val fallbackIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                        startActivity(fallbackIntent)
+                    } catch (ex: Exception) {
+                        ex.printStackTrace()
+                    }
                 }
-                startActivity(intent)
             }
         }
     }

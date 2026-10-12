@@ -1,6 +1,6 @@
-name: Compilar APK WearOS
+name: Compilar APK AlertBatteryLevel
 
-# Cancelar ejecuciones antiguas automáticamente
+# Cancelar ejecuciones antiguas automáticamente si haces varios commits seguidos
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -25,7 +25,7 @@ on:
         type: string
 
 env:
-  NOMBRE_PROGRAMA: "TITLE_APP"
+  NOMBRE_PROGRAMA: "AlertBatteryLevel"
   
 jobs:
   build:

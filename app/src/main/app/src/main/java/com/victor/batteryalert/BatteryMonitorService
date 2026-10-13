@@ -1,5 +1,6 @@
 package com.victor.alertbatterylevel
 
+// Importaciones oficiales requeridas para la gestión de energía, redes y accesibilidad de audio
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -9,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
+import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.net.ConnectivityManager
@@ -29,19 +31,21 @@ import java.util.Locale
 
 class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
 
-    private lateinit var batteryReceiver: BroadcastReceiver
+    private var batteryReceiver: BroadcastReceiver? = null
     private lateinit var prefs: SharedPreferences
     private var tts: TextToSpeech? = null
     private var isTtsInitialized = false
     private lateinit var connectivityManager: ConnectivityManager
-    private lateinit var networkCallback: ConnectivityManager.NetworkCallback
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var currentSsid: String = ""
 
+    // Identificadores numéricos únicos para los canales de notificaciones de Android
     private val CHANNEL_ID = "BatteryMonitorChannel"
     private val NOTIFICATION_ID = 1
     private val ALERT_HIGH_ID = 2
     private val ALERT_LOW_ID = 3
 
+    // Banderas de control para evitar que la alerta suene repetidas veces en el mismo porcentaje
     private var triggeredHigh = false
     private var triggeredLow = false
 
@@ -49,29 +53,37 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
         super.onCreate()
         prefs = getSharedPreferences("BatteryAlertPrefs", Context.MODE_PRIVATE)
     
-        // Pasar a primer plano al instante (Evita el crash de los 5 segundos en Android 14)
+        // Creación obligatoria del canal de comunicación visual
         createNotificationChannel()
+        
+        // CORRECCIÓN ANDROID 14: Gestión segura del tipo de servicio en primer plano
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                NOTIFICATION_ID,
-                buildForegroundNotification(),
-                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-            )
+            try {
+                startForeground(
+                    NOTIFICATION_ID,
+                    buildForegroundNotification(),
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                )
+            } catch (e: Exception) {
+                // Fallback de emergencia si el sistema deniega el token Special Use en el primer milisegundo
+                startForeground(NOTIFICATION_ID, buildForegroundNotification())
+            }
         } else {
             startForeground(NOTIFICATION_ID, buildForegroundNotification())
         }
     
-        // Inicializar TextToSpeech de forma segura una vez en primer plano
+        // Inicialización del motor de síntesis de voz tras asegurar el estado Foreground
         tts = TextToSpeech(this, this)
     
-        // Callback asíncrono para escuchar cambios en el SSID del Wi-Fi de forma moderna
+        // Inicialización del servicio de conectividad de red
         connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val networkRequest = NetworkRequest.Builder()
             .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
             .build()
     
+        // Capturador asíncrono moderno para identificar el SSID del Wi-Fi actual
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            networkCallback = object : ConnectivityManager.NetworkCallback(ConnectivityManager.NetworkCallback.FLAG_INCLUDE_LOCATION_INFO) {
+            networkCallback = object : ConnectivityManager.NetworkCallback(FLAG_INCLUDE_LOCATION_INFO) {
                 override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
                     val wifiInfo = caps.transportInfo as? WifiInfo
                     if (wifiInfo != null) {
@@ -99,9 +111,10 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
                 override fun onLost(network: Network) { currentSsid = "" }
             }
         }
-        connectivityManager.registerNetworkCallback(networkRequest, networkCallback)
+        
+        networkCallback?.let { connectivityManager.registerNetworkCallback(networkRequest, it) }
     
-        // Escucha del estado de la batería
+        // Receptor para capturar de forma constante los cambios en el porcentaje de batería
         batteryReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 if (intent.action == Intent.ACTION_BATTERY_CHANGED) {
@@ -120,6 +133,9 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
         }
     }
 
+    /**
+     * Examina el estado de carga y el porcentaje actual para decidir si activar o resetear alarmas.
+     */
     private fun evaluarBateria(intent: Intent) {
         val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
         val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
@@ -132,6 +148,7 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         if (isCharging) {
+            // Si el móvil está cargando, reseteamos las banderas de batería baja de forma inmediata
             triggeredLow = false
             manager.cancel(ALERT_LOW_ID)
 
@@ -140,13 +157,14 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
 
             if (highEnabled && batteryPct >= highLevel) {
                 if (!triggeredHigh) {
-                    lanzarAlerta(true)
+                    lanzarAlerta(true) // Disparar alerta de carga completa
                     triggeredHigh = true
                 }
             } else if (batteryPct < highLevel) {
                 triggeredHigh = false
             }
         } else {
+            // Si el móvil se desconecta, reseteamos las banderas de batería alta
             triggeredHigh = false
             manager.cancel(ALERT_HIGH_ID)
 
@@ -155,7 +173,7 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
 
             if (lowEnabled && batteryPct <= lowLevel) {
                 if (!triggeredLow) {
-                    lanzarAlerta(false)
+                    lanzarAlerta(false) // Disparar alerta de batería crítica
                     triggeredLow = true
                 }
             } else if (batteryPct > lowLevel) {
@@ -164,6 +182,9 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
         }
     }
 
+    /**
+     * Valida las restricciones de audio del sistema (modo silencio) y los nombres de las redes Wi-Fi.
+     */
     private fun lanzarAlerta(isHigh: Boolean) {
         val prefix = if (isHigh) "high_" else "low_"
         
@@ -171,17 +192,19 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
         val ringerMode = audioManager.ringerMode
         val sonarSiempre = prefs.getBoolean("${prefix}always_sound", true)
         
+        // Si el usuario exige respetar el modo silencio y el móvil está silenciado, solo dibuja la notificación
         if (!sonarSiempre && ringerMode != AudioManager.RINGER_MODE_NORMAL) {
             lanzarNotificacionVisual(isHigh)
             return
         }
 
+        // Validación del filtro inteligente de redes Wi-Fi permitidas
         val wifiFiltrado = prefs.getString("wifi_ssids", "") ?: ""
         if (wifiFiltrado.isNotEmpty()) {
             val listaSsids = wifiFiltrado.split(",").map { it.trim() }
             if (currentSsid !in listaSsids) {
                 lanzarNotificacionVisual(isHigh)
-                return
+                return // Detiene la ejecución multimedia si no está conectado al Wi-Fi autorizado
             }
         }
 
@@ -204,6 +227,9 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
         }
     }
 
+    /**
+     * Construye y despacha de forma visual la notificación push prioritaria en el área de estado.
+     */
     private fun lanzarNotificacionVisual(isHigh: Boolean) {
         val prefix = if (isHigh) "high_" else "low_"
         val idNotif = if (isHigh) ALERT_HIGH_ID else ALERT_LOW_ID
@@ -221,6 +247,9 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
         manager.notify(idNotif, builder.build())
     }
 
+    /**
+     * Genera un tono sintetizado senoidal directo al canal físico de alarmas.
+     */
     private fun reproducirBeep(volumen: Float) {
         try {
             val volumeInt = (volumen * 100).toInt()
@@ -229,14 +258,28 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
         } catch (e: Exception) { e.printStackTrace() }
     }
 
+    /**
+     * CORRECCIÓN ANDROID 11+: Ejecuta la locución de voz vinculando los atributos de audio modernos.
+     */
     private fun reproducirVoz(texto: String, volumen: Float) {
         if (isTtsInitialized && tts != null) {
+            // Configuramos los atributos modernos para que el sistema reconozca la voz como una Alerta de Alarma
+            val audioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+                
+            tts?.setAudioAttributes(audioAttributes)
+            
             val params = android.os.Bundle()
             params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, volumen)
             tts?.speak(texto, TextToSpeech.QUEUE_FLUSH, params, "BatteryAlertTTS")
         }
     }
 
+    /**
+     * Acciona el hardware de vibración interna adaptándose a las APIs modernas de efectos integrados.
+     */
     private fun ejecutarVibracion() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
@@ -249,6 +292,9 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
         }
     }
 
+    /**
+     * Genera el cuerpo estructural de la notificación fija que exige Android para los Foreground Services.
+     */
     private fun buildForegroundNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("BatteryAlert Activo")
@@ -258,6 +304,9 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
             .build()
     }
 
+    /**
+     * Declara y matricula el canal de comunicaciones lógicas ante el gestor del sistema operativo.
+     */
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -275,14 +324,17 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    /**
+     * Destructor del servicio: Libera de forma segura todos los callbacks de memoria para evitar fugas.
+     */
     override fun onDestroy() {
         super.onDestroy()
         try {
-            unregisterReceiver(batteryReceiver)
+            batteryReceiver?.let { unregisterReceiver(it) }
         } catch (e: Exception) { e.printStackTrace() }
         
         try {
-            connectivityManager.unregisterNetworkCallback(networkCallback)
+            networkCallback?.let { connectivityManager.unregisterNetworkCallback(it) }
         } catch (e: Exception) { e.printStackTrace() }
         
         if (tts != null) {
@@ -290,5 +342,4 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
             tts?.shutdown()
         }
     }
-
 }

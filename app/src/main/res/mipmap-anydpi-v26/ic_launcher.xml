@@ -7,7 +7,7 @@
     <!-- CAMBIADO: Apuntamos correctamente a la carpeta @mipmap en lugar de @drawable -->
     <foreground>
         <inset
-            android:drawable="@mipmap/ic_launcher"  
+            android:drawable="@mipmap/ic_launcher_foreground"  
             android:inset="18%" />   
     </foreground>
 </adaptive-icon>

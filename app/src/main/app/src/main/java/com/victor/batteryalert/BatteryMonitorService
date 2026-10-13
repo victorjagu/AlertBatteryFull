@@ -83,7 +83,7 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
     
         // Capturador asíncrono moderno para identificar el SSID del Wi-Fi actual
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            networkCallback = object : ConnectivityManager.NetworkCallback(FLAG_INCLUDE_LOCATION_INFO) {
+            networkCallback = object : ConnectivityManager.NetworkCallback(ConnectivityManager.NetworkCallback.FLAG_INCLUDE_LOCATION_INFO) {
                 override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
                     val wifiInfo = caps.transportInfo as? WifiInfo
                     if (wifiInfo != null) {

@@ -1,6 +1,5 @@
 package com.victor.alertbatterylevel
 
-// Importaciones necesarias para el manejo de componentes de Android y Jetpack Compose
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -26,45 +25,42 @@ import androidx.core.content.ContextCompat
 
 class MainActivity : ComponentActivity() {
 
-    // Almacenamiento local persistente para las preferencias de configuración
+    // Almacenamiento local persistente para las preferencias
     private lateinit var prefs: SharedPreferences
 
-    // Lista ordenada de los permisos que se van a solicitar uno a uno al usuario
-    private val listaPermisosPorPedir = mutableListOf<String>().apply {
-        // Las notificaciones push requieren permiso explícito a partir de Android 13 (Tiramisu)
+    // Lista estática con todos los permisos que la aplicación necesita para funcionar
+    private val permisosRequeridos = mutableListOf<String>().apply {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             add(Manifest.permission.POST_NOTIFICATIONS)
         }
-        // Permisos de ubicación necesarios para poder escanear y leer el SSID (Nombre) de la red Wi-Fi
         add(Manifest.permission.ACCESS_FINE_LOCATION)
         add(Manifest.permission.ACCESS_COARSE_LOCATION)
     }
 
-    // Índice controlado para saber qué permiso de la lista se está evaluando actualmente
-    private var permisoActualIndex = mutableStateOf(0)
-    
-    // Control de visibilidad para mostrar u ocultar el cuadro de diálogo explicativo (AlertDialog)
-    private var mostrarDialogoExplicativo = mutableStateOf(false)
-    
-    // Variable dinámica para almacenar el texto que explicará la importancia del permiso denegado
-    private var textoDialogo = mutableStateOf("")
+    // Estados reactivos de Compose para controlar el diálogo visual de advertencia
+    private var mostrarDialogoExplicativo by mutableStateOf(false)
+    private var textoDialogoExplicativo by mutableStateOf("")
+    private var permisoDenegadoActual by mutableStateOf("")
 
-    // Contrato asíncrono para gestionar la respuesta de la solicitud de un único permiso
-    private val requestSinglePermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { esConcedido ->
-        if (esConcedido) {
-            // Si el usuario acepta el permiso actual, llamamos al evaluador para comprobar el siguiente
-            verificarSiguientePermiso()
+    // El lanzador oficial de Android para gestionar múltiples permisos simultáneamente
+    private val launcherMultiplesPermisos = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { resultados ->
+        // Buscamos si hay algún permiso de la lista que el usuario no haya aceptado (false)
+        val primerPermisoDenegado = resultados.entries.firstOrNull { !it.value }?.key
+
+        if (primerPermisoDenegado != null) {
+            // Si encontramos uno denegado, guardamos cuál es y disparamos el cartel explicativo
+            permisoDenegadoActual = primerPermisoDenegado
+            gestionarTextoExplicativo(primerPermisoDenegado)
         } else {
-            // Si el usuario lo rechaza, analizamos la gravedad del rechazo y preparamos el diálogo de insistencia
-            evaluarDenegacionPermiso(listaPermisosPorPedir[permisoActualIndex.value])
+            // Si todos son true (aceptados), pasamos de forma segura a la optimización de batería
+            verificarOptimizacionBateria()
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Inicializamos las SharedPreferences asociadas al nombre del archivo de la aplicación
         prefs = getSharedPreferences("BatteryAlertPrefs", Context.MODE_PRIVATE)
     
         setContent {
@@ -73,33 +69,30 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // LaunchedEffect asegura que el escaneo de permisos arranque de forma segura una vez montada la UI
+                    // Arranca la comprobación automática de permisos nada más abrir la pantalla
                     LaunchedEffect(Unit) {
-                        verificarSiguientePermiso()
+                        comprobarYPedirPermisos()
                     }
 
-                    // Renderizamos los elementos visuales de la aplicación
+                    // Renderiza la interfaz de usuario con los botones y configuraciones
                     ScreenPrincipal()
 
-                    // Interceptador visual: Si el usuario deniega un permiso obligatorio, se levanta esta ventana emergente
-                    if (mostrarDialogoExplicativo.value) {
+                    // Si el usuario rechaza un permiso, se dibuja este diálogo de manera obligatoria
+                    if (mostrarDialogoExplicativo) {
                         AlertDialog(
-                            onDismissRequest = { /* Bloqueado: Impide cerrar el diálogo haciendo clic fuera de él */ },
+                            onDismissRequest = { /* Bloqueado: Impide cerrar el cuadro pulsando fuera */ },
                             title = { Text("Permiso Obligatorio") },
-                            text = { Text(textoDialogo.value) },
+                            text = { Text(textoDialogoExplicativo) },
                             confirmButton = {
                                 Button(onClick = {
-                                    // Ocultamos temporalmente el diálogo para relanzar la petición
-                                    mostrarDialogoExplicativo.value = false
-                                    val permiso = listaPermisosPorPedir[permisoActualIndex.value]
+                                    mostrarDialogoExplicativo = false
                                     
-                                    // Si shouldShowRequestPermissionRationale devuelve false, el usuario marcó "No volver a preguntar"
-                                    if (!ActivityCompat.shouldShowRequestPermissionRationale(this@MainActivity, permiso)) {
-                                        // Obligamos al usuario a ir a la pantalla de Ajustes del sistema para corregirlo manualmente
+                                    // Si el usuario bloqueó el diálogo nativo permanentemente, lo mandamos a Ajustes
+                                    if (!ActivityCompat.shouldShowRequestPermissionRationale(this@MainActivity, permisoDenegadoActual)) {
                                         abrirAjustesAplicacion()
                                     } else {
-                                        // Si aún se puede preguntar de forma nativa, volvemos a lanzar el cuadro del sistema
-                                        requestSinglePermissionLauncher.launch(permiso)
+                                        // Si aún se puede preguntar, le volvemos a lanzar la petición del sistema
+                                        launcherMultiplesPermisos.launch(permisosRequeridos.toTypedArray())
                                     }
                                 }) {
                                     Text("Entendido / Configurar")
@@ -113,53 +106,41 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Recorre la lista de permisos en busca de la primera posición que no esté concedida.
+     * Filtra la lista de permisos y solicita únicamente aquellos que falten por otorgar.
      */
-    private fun verificarSiguientePermiso() {
-        while (permisoActualIndex.value < listaPermisosPorPedir.size) {
-            val permiso = listaPermisosPorPedir[permisoActualIndex.value]
-            // Comprobamos si el permiso actual ya fue otorgado previamente
-            if (ContextCompat.checkSelfPermission(this, permiso) != PackageManager.PERMISSION_GRANTED) {
-                // Al encontrar un permiso faltante, detenemos el bucle e invocamos la solicitud visual
-                requestSinglePermissionLauncher.launch(permiso)
-                return
-            }
-            // Si el permiso ya estaba listo, incrementamos el índice para inspeccionar el siguiente elemento
-            permisoActualIndex.value++
+    private fun comprobarYPedirPermisos() {
+        val permisosFaltantes = permisosRequeridos.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
-        
-        // Si el flujo completa con éxito toda la lista de permisos, pasa a revisar el estado de la batería
-        verificarOptimizacionBateria()
+
+        if (permisosFaltantes.isNotEmpty()) {
+            launcherMultiplesPermisos.launch(permisosFaltantes.toTypedArray())
+        } else {
+            verificarOptimizacionBateria()
+        }
     }
 
     /**
-     * Adapta dinámicamente el texto del cuadro explicativo dependiendo de cuál permiso fue rechazado.
+     * Configura el mensaje del cartel de advertencia dependiendo de cuál permiso fue rechazado.
      */
-    private fun evaluarDenegacionPermiso(permiso: String) {
-        textoDialogo.value = when (permiso) {
+    private fun gestionarTextoExplicativo(permiso: String) {
+        textoDialogoExplicativo = when (permiso) {
             Manifest.permission.POST_NOTIFICATIONS -> 
                 "Para poder avisarte cuando tu batería llegue al límite configurado, es totalmente necesario que permitas las notificaciones."
             Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION -> 
-                "Android requiere el permiso de ubicación para poder leer el nombre (SSID) de tu red Wi-Fi actual. Sin esto, los filtros de red no funcionarán."
-            else -> "Este permiso es necesario para el correcto funcionamiento de la aplicación."
+                "Android requiere el permiso de ubicación para leer el nombre (SSID) de tu red Wi-Fi actual. Sin esto, los filtros inteligentes no funcionarán."
+            else -> "Este permiso es requerido para el correcto funcionamiento de la app."
         }
         
-        // Si el sistema operativo ha deshabilitado el diálogo nativo, añadimos una advertencia adicional
         if (!ActivityCompat.shouldShowRequestPermissionRationale(this, permiso)) {
-            textoDialogo.value += "\n\nDetectamos que el diálogo está bloqueado de forma permanente. Por favor, actívalo manualmente en los Ajustes de la app."
+            textoDialogoExplicativo += "\n\nDetectamos que el diálogo está bloqueado. Por favor, actívalo manualmente en los Ajustes de la app."
         }
-        
-        // Disparamos la visibilidad del diálogo en Compose
-        mostrarDialogoExplicativo.value = true
+        mostrarDialogoExplicativo = true
     }
 
-    /**
-     * Solicita al sistema ignorar el modo de ahorro de energía agresivo (Doze Mode) para que el servicio no muera.
-     */
     private fun verificarOptimizacionBateria() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
-            // Si la app no está en la lista blanca de exclusiones de batería, abrimos la solicitud
             if (!pm.isIgnoringBatteryOptimizations(packageName)) {
                 try {
                     val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
@@ -167,7 +148,6 @@ class MainActivity : ComponentActivity() {
                     }
                     startActivity(intent)
                 } catch (e: Exception) {
-                    // Fallback: Si el intento directo falla o está restringido por el fabricante, abre el menú general
                     try {
                         val fallbackIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                         startActivity(fallbackIntent)
@@ -177,9 +157,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Abre de forma directa la configuración interna de la aplicación dentro de los Ajustes de Android.
-     */
     private fun abrirAjustesAplicacion() {
         try {
             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -191,29 +168,19 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Cuando el usuario regresa de la pantalla de Ajustes del sistema, reiniciamos el contador a 0
-        // para reevaluar desde el principio si otorgó los permisos requeridos o si se saltó alguno.
-        permisoActualIndex.value = 0
-        verificarSiguientePermiso()
+        comprobarYPedirPermisos()
     }
 
-    /**
-     * Enciende o apaga el Foreground Service de monitoreo dependiendo de las acciones del usuario.
-     */
     private fun gestionarServicio(enable: Boolean) {
-        // Guardamos el estado global de activación en el almacenamiento local
         prefs.edit().putBoolean("app_enabled", enable).apply()
         val serviceIntent = Intent(this, BatteryMonitorService::class.java)
-        
         if (enable) {
-            // Android 8.0 (Oreo) en adelante exige iniciar servicios en segundo plano a través de startForegroundService
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 startForegroundService(serviceIntent)
             } else {
                 startService(serviceIntent)
             }
         } else {
-            // Si el switch general se apaga, destruimos el servicio en ejecución inmediatamente
             stopService(serviceIntent)
         }
     }
@@ -221,7 +188,6 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun ScreenPrincipal() {
-        // Estado reactivo que lee si el servicio general está operativo o apagado
         var appEnabled by remember { mutableStateOf(prefs.getBoolean("app_enabled", false)) }
         val subtitulo = if (appEnabled) "Alertas de nivel de batería ENCENDIDO" else "Alertas de nivel de batería APAGADO"
         
@@ -235,7 +201,6 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     actions = {
-                        // Switch principal en la barra superior para controlar el servicio
                         Switch(
                             checked = appEnabled,
                             onCheckedChange = { appEnabled = it; gestionarServicio(it) }
@@ -252,10 +217,10 @@ class MainActivity : ComponentActivity() {
                     .fillMaxSize()
                     .padding(paddingValues)
                     .padding(16.dp)
-                    .verticalScroll(rememberScrollState()), // Permite hacer scroll vertical
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // --- SECCIÓN 1: CONFIGURACIÓN DE ALERTA DE BATERÍA LLENA ---
+                // --- SECCIÓN 1: ALERTA DE BATERÍA LLENA ---
                 var highEnabled by remember { mutableStateOf(prefs.getBoolean("high_enabled", false)) }
                 var highLevel by remember { mutableStateOf(prefs.getInt("high_level", 80).toFloat()) }
                 var highMsgNotif by remember { mutableStateOf(prefs.getString("high_msg_notif", "¡Batería cargada! Desconéctame por favor") ?: "") }
@@ -309,7 +274,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // --- SECCIÓN 2: CONFIGURACIÓN DE ALERTA DE BATERÍA BAJA ---
+                // --- SECCIÓN 2: ALERTA DE BATERÍA BAJA ---
                 var lowEnabled by remember { mutableStateOf(prefs.getBoolean("low_enabled", false)) }
                 var lowLevel by remember { mutableStateOf(prefs.getInt("low_level", 20).toFloat()) }
                 var lowMsgNotif by remember { mutableStateOf(prefs.getString("low_msg_notif", "¡Batería baja! Conecta el cargador") ?: "") }
@@ -362,8 +327,8 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-
-                // --- SECCIÓN 3: FILTROS DE COBERTURA E INTELIGENCIA WI-FI ---
+                
+                // --- SECCIÓN 3: CONDICIONES INTELIGENTES (WI-FI) ---
                 var wifiSsids by remember { mutableStateOf(prefs.getString("wifi_ssids", "") ?: "") }
 
                 Card(

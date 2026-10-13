@@ -12,8 +12,11 @@
     <!-- Permisos para filtros de red Wi-Fi -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    
     <!-- Requerido en versiones modernas de Android para leer el SSID del Wi-Fi -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Obligatorio declararlo junto a FINE_LOCATION en Android 12+ -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" /> 
 
     <application
         android:allowBackup="true"
@@ -49,7 +52,7 @@
         <receiver
             android:name=".BootReceiver"
             android:enabled="true"
-            android:exported="false">
+            android:exported="true">   <!-- Debe ser exported="true" para que el sistema operativo pueda despertarlo -->
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>

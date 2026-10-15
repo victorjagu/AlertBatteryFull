@@ -31,7 +31,8 @@ import java.util.Locale
 
 class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
 
-    private var batteryReceiver: BroadcastReceiver? = null
+    private var powerReceiver: BroadcastReceiver? = null
+    private var periodicReceiver: BroadcastReceiver? = null
     private lateinit var prefs: SharedPreferences
     private var tts: TextToSpeech? = null
     private var isTtsInitialized = false
@@ -65,83 +66,48 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
                     android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
                 )
             } catch (e: Exception) {
-                // Fallback de emergencia si el sistema deniega el token Special Use en el primer milisegundo
+                // Fallback de emergencia si el sistema deniega el token en el primer milisegundo
                 startForeground(NOTIFICATION_ID, buildForegroundNotification())
             }
         } else {
             startForeground(NOTIFICATION_ID, buildForegroundNotification())
         }
     
-        // Inicialización del motor de síntesis de voz tras asegurar el estado Foreground
+        // Inicialización del motor de síntesis de voz
         tts = TextToSpeech(this, this)
-    
-        // Inicialización del servicio de conectividad de red
-        connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val networkRequest = NetworkRequest.Builder()
-            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-            .build()
-    
-        // Capturador asíncrono moderno para identificar el SSID del Wi-Fi actual
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            networkCallback = object : ConnectivityManager.NetworkCallback(ConnectivityManager.NetworkCallback.FLAG_INCLUDE_LOCATION_INFO) {
-                override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
-                    val wifiInfo = caps.transportInfo as? WifiInfo
-                    if (wifiInfo != null) {
-                        var ssid = wifiInfo.ssid ?: ""
-                        if (ssid.startsWith("\"") && ssid.endsWith("\"")) {
-                            ssid = ssid.substring(1, ssid.length - 1)
-                        }
-                        currentSsid = ssid
-                    }
-                }
-                override fun onLost(network: Network) { currentSsid = "" }
-            }
-        } else {
-            networkCallback = object : ConnectivityManager.NetworkCallback() {
-                override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
-                    val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-                    @Suppress("DEPRECATION")
-                    val info = wifiManager.connectionInfo
-                    var ssid = info?.ssid ?: ""
-                    if (ssid.startsWith("\"") && ssid.endsWith("\"")) {
-                        ssid = ssid.substring(1, ssid.length - 1)
-                    }
-                    currentSsid = ssid
-                }
-                override fun onLost(network: Network) { currentSsid = "" }
-            }
-        }
+        registrarCallbackWifi()
         
-        networkCallback?.let { connectivityManager.registerNetworkCallback(networkRequest, it) }
-    
-        // Receptor para capturar de forma constante los cambios en el porcentaje de batería
-        batteryReceiver = object : BroadcastReceiver() {
+        // --- OPTIMIZACIÓN ENERGÉTICA ---
+        // 1. Evaluamos el estado actual inmediatamente al arrancar el servicio
+        evaluarEstadoActual()
+
+        // 2. Escuchamos de forma pasiva SOLO cuando se conecta o desconecta el cargador físico
+        powerReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
-                if (intent.action == Intent.ACTION_BATTERY_CHANGED) {
-                    evaluarBateria(intent)
-                }
+                evaluarEstadoActual()
+                gestionarReceptorPeriodico() // Activa o desactiva el monitoreo continuo dinámicamente
             }
         }
-        val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-        registerReceiver(batteryReceiver, filter)
-    }
-
-    override fun onInit(status: Int) {
-        if (status == TextToSpeech.SUCCESS) {
-            tts?.language = Locale.getDefault()
-            isTtsInitialized = true
+        val powerFilter = IntentFilter().apply {
+            addAction(Intent.ACTION_POWER_CONNECTED)
+            addAction(Intent.ACTION_POWER_DISCONNECTED)
         }
+        registerReceiver(powerReceiver, powerFilter)
+
+        // 3. Inicializa el comportamiento del receptor periódico adaptativo
+        gestionarReceptorPeriodico()
     }
 
     /**
-     * Examina el estado de carga y el porcentaje actual para decidir si activar o resetear alarmas.
+     * Evalúa el porcentaje y la carga usando consultas directas a la API del sistema (sin eventos continuos).
      */
-    private fun evaluarBateria(intent: Intent) {
-        val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-        val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-        val batteryPct = (level / scale.toFloat() * 100).toInt()
-
-        val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+    private fun evaluarEstadoActual() {
+        val batteryManager = getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        val batteryPct = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        
+        // Consultar de forma segura si está cargando a través del registro pasivo del sistema
+        val intentBateria = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val status = intentBateria?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
         val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || 
                          status == BatteryManager.BATTERY_STATUS_FULL
 
@@ -183,28 +149,99 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
     }
 
     /**
-     * Valida las restricciones de audio del sistema (modo silencio) y los nombres de las redes Wi-Fi.
+     * CONTROL ADAPTATIVO: Solo escucha cambios de porcentaje si es estrictamente necesario.
      */
+    private fun gestionarReceptorPeriodico() {
+        val intentBateria = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val status = intentBateria?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || 
+                         status == BatteryManager.BATTERY_STATUS_FULL
+
+        val highEnabled = prefs.getBoolean("high_enabled", false)
+        val lowEnabled = prefs.getBoolean("low_enabled", false)
+
+        // ¿Es necesario escuchar los cambios continuos de batería ahora mismo?
+        val necesitaMonitoreo = (isCharging && highEnabled && !triggeredHigh) || 
+                                (!isCharging && lowEnabled && !triggeredLow)
+
+        if (necesitaMonitoreo) {
+            if (periodicReceiver == null) {
+                periodicReceiver = object : BroadcastReceiver() {
+                    override fun onReceive(context: Context, intent: Intent) {
+                        if (intent.action == Intent.ACTION_BATTERY_CHANGED) {
+                            evaluarEstadoActual()
+                        }
+                    }
+                }
+                // Usamos el filtro normal, pero SOLO estará activo en las ventanas de tiempo críticas
+                registerReceiver(periodicReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            }
+        } else {
+            // Si ya se disparó la alerta o el interruptor está apagado, removemos el receptor para ahorrar batería
+            periodicReceiver?.let {
+                try {
+                    unregisterReceiver(it)
+                } catch (e: Exception) { e.printStackTrace() }
+                periodicReceiver = null
+            }
+        }
+    }
+
+    private fun registrarCallbackWifi() {
+        connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val networkRequest = NetworkRequest.Builder()
+            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+            .build()
+    
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            networkCallback = object : ConnectivityManager.NetworkCallback(FLAG_INCLUDE_LOCATION_INFO) {
+                override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+                    val wifiInfo = caps.transportInfo as? WifiInfo
+                    if (wifiInfo != null) {
+                        var ssid = wifiInfo.ssid ?: ""
+                        if (ssid.startsWith("\"") && ssid.endsWith("\"")) {
+                            ssid = ssid.substring(1, ssid.length - 1)
+                        }
+                        currentSsid = ssid
+                    }
+                }
+                override fun onLost(network: Network) { currentSsid = "" }
+            }
+        } else {
+            networkCallback = object : ConnectivityManager.NetworkCallback() {
+                override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+                    val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+                    @Suppress("DEPRECATION")
+                    val info = wifiManager.connectionInfo
+                    var ssid = info?.ssid ?: ""
+                    if (ssid.startsWith("\"") && ssid.endsWith("\"")) {
+                        ssid = ssid.substring(1, ssid.length - 1)
+                    }
+                    currentSsid = ssid
+                }
+                override fun onLost(network: Network) { currentSsid = "" }
+            }
+        }
+        networkCallback?.let { connectivityManager.registerNetworkCallback(networkRequest, it) }
+    }
+
     private fun lanzarAlerta(isHigh: Boolean) {
         val prefix = if (isHigh) "high_" else "low_"
-        
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         val ringerMode = audioManager.ringerMode
         val sonarSiempre = prefs.getBoolean("${prefix}always_sound", true)
         
-        // Si el usuario exige respetar el modo silencio y el móvil está silenciado, solo dibuja la notificación
         if (!sonarSiempre && ringerMode != AudioManager.RINGER_MODE_NORMAL) {
             lanzarNotificacionVisual(isHigh)
             return
         }
 
-        // Validación del filtro inteligente de redes Wi-Fi permitidas
         val wifiFiltrado = prefs.getString("wifi_ssids", "") ?: ""
         if (wifiFiltrado.isNotEmpty()) {
             val listaSsids = wifiFiltrado.split(",").map { it.trim() }
             if (currentSsid !in listaSsids) {
                 lanzarNotificacionVisual(isHigh)
-                return // Detiene la ejecución multimedia si no está conectado al Wi-Fi autorizado
+                return 
             }
         }
 
@@ -225,11 +262,11 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
         if (prefs.getBoolean("${prefix}use_vibrate", false)) {
             ejecutarVibracion()
         }
+        
+        // Apagamos el monitoreo continuo inmediatamente tras dar la alerta para congelar el consumo de energía
+        gestionarReceptorPeriodico()
     }
 
-    /**
-     * Construye y despacha de forma visual la notificación push prioritaria en el área de estado.
-     */
     private fun lanzarNotificacionVisual(isHigh: Boolean) {
         val prefix = if (isHigh) "high_" else "low_"
         val idNotif = if (isHigh) ALERT_HIGH_ID else ALERT_LOW_ID
@@ -247,9 +284,6 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
         manager.notify(idNotif, builder.build())
     }
 
-    /**
-     * Genera un tono sintetizado senoidal directo al canal físico de alarmas.
-     */
     private fun reproducirBeep(volumen: Float) {
         try {
             val volumeInt = (volumen * 100).toInt()
@@ -258,12 +292,8 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
         } catch (e: Exception) { e.printStackTrace() }
     }
 
-    /**
-     * CORRECCIÓN ANDROID 11+: Ejecuta la locución de voz vinculando los atributos de audio modernos.
-     */
     private fun reproducirVoz(texto: String, volumen: Float) {
         if (isTtsInitialized && tts != null) {
-            // Configuramos los atributos modernos para que el sistema reconozca la voz como una Alerta de Alarma
             val audioAttributes = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_ALARM)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
@@ -277,9 +307,6 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
         }
     }
 
-    /**
-     * Acciona el hardware de vibración interna adaptándose a las APIs modernas de efectos integrados.
-     */
     private fun ejecutarVibracion() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
@@ -292,21 +319,15 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
         }
     }
 
-    /**
-     * Genera el cuerpo estructural de la notificación fija que exige Android para los Foreground Services.
-     */
     private fun buildForegroundNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("BatteryAlert Activo")
-            .setContentText("Vigilando el nivel de batería...")
+            .setContentText("Vigilando el nivel de batería de manera eficiente...")
             .setSmallIcon(android.R.drawable.ic_menu_info_details)
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .build()
     }
 
-    /**
-     * Declara y matricula el canal de comunicaciones lógicas ante el gestor del sistema operativo.
-     */
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -324,13 +345,21 @@ class BatteryMonitorService : Service(), TextToSpeech.OnInitListener {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    /**
-     * Destructor del servicio: Libera de forma segura todos los callbacks de memoria para evitar fugas.
-     */
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            tts?.language = Locale.getDefault()
+            isTtsInitialized = true
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         try {
-            batteryReceiver?.let { unregisterReceiver(it) }
+            powerReceiver?.let { unregisterReceiver(it) }
+        } catch (e: Exception) { e.printStackTrace() }
+        
+        try {
+            periodicReceiver?.let { unregisterReceiver(it) }
         } catch (e: Exception) { e.printStackTrace() }
         
         try {

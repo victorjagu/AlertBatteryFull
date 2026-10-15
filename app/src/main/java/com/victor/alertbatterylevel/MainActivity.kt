@@ -122,11 +122,17 @@ class MainActivity : ComponentActivity() {
 
             if (!hasBg) {
                 android.app.AlertDialog.Builder(this)
-                    .setTitle("Permiso del Wi-Fi en segundo plano")
-                    .setMessage("Para poder filtrar las alertas según tu red Wi-Fi en segundo plano, por favor selecciona 'Permitir todo el tiempo' en los siguientes ajustes de ubicación.")
+                    .setTitle("Acceso completo a la Ubicación")
+                    .setMessage(
+                        "Para que las alertas funcionen correctamente con tu red Wi-Fi, la aplicación necesita acceso permanente al GPS.\n\n" +
+                        "En la siguiente pantalla, sigue estos pasos:\n" +
+                        "1. Pulsa en 'Permisos'.\n" +
+                        "2. Selecciona 'Ubicación'.\n" +
+                        "3. Cambia la opción a 'Permitir todo el tiempo'."
+                    )
                     .setPositiveButton("Ir a Ajustes") { _, _ ->
                         try {
-                            // Redirigimos al usuario directamente a la pantalla de Ajustes del sistema de nuestra app
+                            // Redirigimos al usuario a la pantalla de Información de la App (máximo nivel permitido por Android)
                             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                                 data = Uri.fromParts("package", packageName, null)
                             }

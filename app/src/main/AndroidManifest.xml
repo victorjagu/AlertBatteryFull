@@ -12,23 +12,23 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     
-    <!-- Permiso para pedir la exclusión del modo Doze (ahorro de batería del sistema) -->
+    <!-- Permiso para pedir la exclusion del modo Doze (ahorro de bateria del sistema) -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
-    <!-- Permiso para reactivar las alertas automáticamente al encender el teléfono -->
+    <!-- Permiso para reactivar las alertas automaticamente al encender el telefono -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     
     <!-- Permisos de red requeridos para comprobar la conectividad Wi-Fi -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     
-    <!-- Permisos de localización (GPS): Obligatorios en Android 12+ para leer el nombre (SSID) del Wi-Fi -->
+    <!-- Permisos de localizacion (GPS): Obligatorios en Android 12+ para leer el nombre (SSID) del Wi-Fi -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" /> 
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
     <!-- ======================================================================= -->
-    <!-- 2. CONFIGURACIÓN DE LA APLICACIÓN                                       -->
+    <!-- 2. CONFIGURACION DE LA APLICACION                                       -->
     <!-- ======================================================================= -->
     <application
         android:allowBackup="true"
@@ -49,7 +49,7 @@
             </intent-filter>
         </activity>
 
-        <!-- --- COMPONENTE 2: MOTOR DE MONITOREO DE BATERÍA --- -->
+        <!-- --- COMPONENTE 2: MOTOR DE MONITOREO DE BATERIA --- -->
         <service
             android:name=".BatteryMonitorService"
             android:enabled="true"
@@ -59,10 +59,10 @@
             <!-- Propiedad oficial requerida por Google Play para declarar el subtipo de servicio especial -->
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Monitoreo continuo y eficiente del nivel de batería para lanzar alertas multimedia al usuario." />
+                android:value="Monitoreo continuo y eficiente del nivel de bateria para lanzar alertas multimedia al usuario." />
         </service>
 
-        <!-- --- COMPONENTE 3: DESPERTADOR AUTOMÁTICO (REINICIOS) --- -->
+        <!-- --- COMPONENTE 3: DESPERTADOR AUTOMATICO (REINICIOS) --- -->
         <receiver
             android:name=".BootReceiver"
             android:enabled="true"

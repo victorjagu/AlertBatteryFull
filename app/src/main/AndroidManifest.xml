@@ -1,33 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Permisos para el control de la batería y Alertas -->
+    <!-- ======================================================================= -->
+    <!-- 1. PERMISOS DEL SISTEMA OPERATIVO                                       -->
+    <!-- ======================================================================= -->
+
+    <!-- Permisos para enviar notificaciones de alerta (Obligatorio en Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Permisos esenciales para ejecutar y mantener el motor en segundo plano -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    
+    <!-- Permiso para pedir la exclusión del modo Doze (ahorro de batería del sistema) -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!-- Permiso para reactivar las alertas automáticamente al encender el teléfono -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     
-    <!-- Permisos para filtros de red Wi-Fi -->
+    <!-- Permisos de red requeridos para comprobar la conectividad Wi-Fi -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     
-    <!-- Requerido en versiones modernas de Android para leer el SSID del Wi-Fi -->
+    <!-- Permisos de localización (GPS): Obligatorios en Android 12+ para leer el nombre (SSID) del Wi-Fi -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <!-- Obligatorio declararlo junto a FINE_LOCATION en Android 12+ -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" /> 
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
+    <!-- ======================================================================= -->
+    <!-- 2. CONFIGURACIÓN DE LA APLICACIÓN                                       -->
+    <!-- ======================================================================= -->
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="Alert Battery Level"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.AlertBatteryLevel">
+        android:theme="@style/Theme.Material3.DayNight.NoActionBar">
 
-        <!-- Pantalla Principal de la Aplicación -->
+        <!-- --- COMPONENTE 1: PANTALLA PRINCIPAL --- -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -38,22 +49,24 @@
             </intent-filter>
         </activity>
 
-        <!-- Servicio en segundo plano para vigilar la batería -->
+        <!-- --- COMPONENTE 2: MOTOR DE MONITOREO DE BATERÍA --- -->
         <service
             android:name=".BatteryMonitorService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="specialUse">
+            
+            <!-- Propiedad oficial requerida por Google Play para declarar el subtipo de servicio especial -->
             <property
-                android:name="android.app.property.FOREGROUND_SERVICE_TYPE_SPECIAL_USE"
-                android:value="Monitoreo continuo del nivel de batería para alertar al usuario." />
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Monitoreo continuo y eficiente del nivel de batería para lanzar alertas multimedia al usuario." />
         </service>
 
-        <!-- Receptor para el auto-inicio cuando se enciende el móvil -->
+        <!-- --- COMPONENTE 3: DESPERTADOR AUTOMÁTICO (REINICIOS) --- -->
         <receiver
             android:name=".BootReceiver"
             android:enabled="true"
-            android:exported="true">   <!-- Debe ser exported="true" para que el sistema operativo pueda despertarlo -->
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>

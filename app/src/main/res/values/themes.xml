@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- Tema nativo del dispositivo muy ligero, ideal para apps basadas en Jetpack Compose -->
-    <style name="Theme.AlertBatteryLevel" parent="@android:style/Theme.DeviceDefault.NoActionBar">
-        <!-- Colores base estándar para el sistema operativo -->
-        <item name="android:colorPrimary">@android:color/holo_green_dark</item>
-        <item name="android:statusBarColor">@android:color/transparent</item>
-    </style>
-</resources>

@@ -39,12 +39,29 @@ class MainActivity : ComponentActivity() {
         add(Manifest.permission.ACCESS_COARSE_LOCATION)
     }
 
+    // Contrato asíncrono nativo para gestionar la vuelta del usuario desde la pantalla de Ajustes del Sistema
+    private val ajustarConfiguracionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { _ ->
+        // Al regresar de ajustes, evaluamos el ahorro de batería de forma inmediata
+        verificarOptimizacionBateria()
+    }
+
     // Contrato asíncrono nativo de Android que recibe el resultado de la ventana de permisos
     private val pedirPermisosLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { _ -> 
-        // Inmediatamente después de que el usuario interactúa con la ventana, evaluamos el ahorro de batería
-        verificarOptimizacionBateria()
+    ) { resultados -> 
+        // Evaluamos si el usuario aceptó los permisos base de ubicación en primer plano antes de proceder con el segundo plano
+        val fineGranted = resultados[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        val coarseGranted = resultados[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+
+        if ((fineGranted || coarseGranted) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // Si la ubicación base está autorizada, procedemos a requerir de forma escalonada el permiso en segundo plano
+            solicitarUbicacionSegundoPlano()
+        } else {
+            // Inmediatamente después de que el usuario interactúa con la ventana, evaluamos el ahorro de batería
+            verificarOptimizacionBateria()
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -85,8 +102,48 @@ class MainActivity : ComponentActivity() {
         if (noConcedidos.isNotEmpty()) {
             pedirPermisosLauncher.launch(noConcedidos.toTypedArray())
         } else {
-            // Si ya todo estaba previamente autorizado, comprobamos las restricciones de batería
-            verificarOptimizacionBateria()
+            // Si ya todo estaba previamente autorizado, comprobamos las restricciones del segundo plano (Android 10+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                solicitarUbicacionSegundoPlano()
+            } else {
+                // Si ya todo estaba previamente autorizado, comprobamos las restricciones de batería
+                verificarOptimizacionBateria()
+            }
+        }
+    }
+
+    /**
+     * Muestra una explicación clara obligatoria antes de redirigir al usuario a activar "Permitir todo el tiempo".
+     */
+    private fun solicitarUbicacionSegundoPlano() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val bgPermission = Manifest.permission.ACCESS_BACKGROUND_LOCATION
+            val hasBg = ContextCompat.checkSelfPermission(this, bgPermission) == PackageManager.PERMISSION_GRANTED
+
+            if (!hasBg) {
+                android.app.AlertDialog.Builder(this)
+                    .setTitle("Permiso del Wi-Fi en segundo plano")
+                    .setMessage("Para poder filtrar las alertas según tu red Wi-Fi en segundo plano, por favor selecciona 'Permitir todo el tiempo' en los siguientes ajustes de ubicación.")
+                    .setPositiveButton("Ir a Ajustes") { _, _ ->
+                        try {
+                            // Redirigimos al usuario directamente a la pantalla de Ajustes del sistema de nuestra app
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.fromParts("package", packageName, null)
+                            }
+                            ajustarConfiguracionLauncher.launch(intent)
+                        } catch (e: Exception) {
+                            verificarOptimizacionBateria()
+                        }
+                    }
+                    .setNegativeButton("Cancelar") { dialog, _ ->
+                        dialog.dismiss()
+                        verificarOptimizacionBateria()
+                    }
+                    .setCancelable(false)
+                    .show()
+            } else {
+                verificarOptimizacionBateria()
+            }
         }
     }
 

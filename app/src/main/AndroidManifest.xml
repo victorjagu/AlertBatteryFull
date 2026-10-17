@@ -39,7 +39,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AlertBatteryLevel">
 
-        <!-- --- COMPONENTE 1: PANTALLA PRINCIPAL --- -->
+        <!-- COMPONENTE 1: PANTALLA PRINCIPAL -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -50,7 +50,7 @@
             </intent-filter>
         </activity>
 
-        <!-- --- COMPONENTE 2: MOTOR DE MONITOREO DE BATERIA --- -->
+        <!-- COMPONENTE 2: MOTOR DE MONITOREO DE BATERIA -->
         <service
             android:name=".BatteryMonitorService"
             android:enabled="true"
@@ -63,7 +63,7 @@
                 android:value="Monitoreo continuo del nivel de batería para alertar al usuario." />
         </service>
 
-        <!-- --- COMPONENTE 3: DESPERTADOR AUTOMATICO (REINICIOS) --- -->
+        <!-- COMPONENTE 3: DESPERTADOR AUTOMATICO (REINICIOS) -->
         <receiver
             android:name=".BootReceiver"
             android:enabled="true"

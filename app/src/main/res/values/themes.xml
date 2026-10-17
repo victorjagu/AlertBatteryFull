@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Este es el puente indispensable para que Android reconozca el tema del Manifiesto -->
-    <style name="Theme.AlertBatteryLevel" parent="Theme.Material3.DayNight.NoActionBar" />
+    <!-- Usamos DeviceDefault para que compile de forma nativa e independiente -->
+    <style name="Theme.AlertBatteryLevel" parent="@android:style/Theme.DeviceDefault.NoActionBar" />
 </resources>

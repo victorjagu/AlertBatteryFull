@@ -36,8 +36,7 @@
         android:label="Alert Battery Level"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.AlertBatteryLevel">
-        <!-- android:theme="@style/Theme.Material3.DayNight.NoActionBar"> -->
+        android:theme="@style/Theme.AlertBatteryLevel"
 
         <!-- --- COMPONENTE 1: PANTALLA PRINCIPAL --- -->
         <activity

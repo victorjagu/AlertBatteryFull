@@ -58,15 +58,15 @@
             
             <!-- Propiedad oficial requerida por Google Play para declarar el subtipo de servicio especial -->
             <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Monitoreo continuo y eficiente del nivel de bateria para lanzar alertas multimedia al usuario." />
+                android:name="android.app.property.FOREGROUND_SERVICE_TYPE_SPECIAL_USE"
+                android:value="Monitoreo continuo del nivel de batería para alertar al usuario." />
         </service>
 
         <!-- --- COMPONENTE 3: DESPERTADOR AUTOMATICO (REINICIOS) --- -->
         <receiver
             android:name=".BootReceiver"
             android:enabled="true"
-            android:exported="false">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>

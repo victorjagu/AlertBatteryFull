@@ -79,7 +79,7 @@ jobs:
 
     # Solución definitiva sin dependencias locales: Se usa el ejecutable global 'gradle'
     - name: Compilar APK (${{ env.BUILD_TYPE }})
-      run: gradle ${{ env.GRADLE_TASK }} --no-daemon --info
+      run: gradle ${{ env.GRADLE_TASK }} --no-daemon
 
     - name: Renombrar archivo APK
       run: mv ${{ env.APK_DIR }}/${{ env.ORIGINAL_APK }} ${{ env.APK_DIR }}/${{ env.NOMBRE_PROGRAMA }}.apk

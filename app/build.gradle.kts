@@ -7,8 +7,6 @@ android {
     namespace = "com.victor.alertbatterylevel"
     compileSdk = 34
 
-    buildToolsVersion = "34.0.0" 
-
     defaultConfig {
         applicationId = "com.victor.alertbatterylevel"
         minSdk = 26

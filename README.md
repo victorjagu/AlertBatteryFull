@@ -3,9 +3,7 @@
   <img src="app/src/main/res/mipmap-xxhdpi/ic_launcher.png" width="256" alt="AppIcon">
 </p>
 
-# Alert Battery Level
-
-A lightweight, efficient, and customizable application designed for mobile Android systems. Its main purpose is to alert the user when the battery reaches a minimum and/or maximum level so they can connect or disconnect the charger.
+<p align="center">A lightweight, efficient, and customizable application designed for mobile Android systems. Its main purpose is to alert the user when the battery reaches a minimum and/or maximum level so they can connect or disconnect the charger.</p>
 
 ## 🚀 Key Features
 

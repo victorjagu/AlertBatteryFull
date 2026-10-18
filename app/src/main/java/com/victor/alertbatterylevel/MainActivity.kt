@@ -189,7 +189,7 @@ class MainActivity : Activity() {
         }
     }
 
-    // FUNCIÓN: Muestra la ventana con los pasos exactos y redirige al usuario a los Ajustes de la Aplicación al pulsar el botón
+    // FUNCIÓN: Muestra la guía y redirige al usuario de forma directa a los Ajustes de la Aplicación
     private fun showManualInstructionsDialog() {
         AlertDialog.Builder(this)
             .setTitle("Ajustes de Fiabilidad")
@@ -197,10 +197,10 @@ class MainActivity : Activity() {
                         "1. Entra en 'Batería' y selecciona 'SIN RESTRICCIONES' (u 'Optimizar consumo' -> Desactivar).\n\n" +
                         "2. Activa el 'INICIO AUTOMÁTICO' o 'Inicio secundario' si tu móvil dispone de esa opción.\n\n" +
                         "3. Verifica que los permisos de Notificaciones sigan activos.")
-            .setCancelable(false)
+            .setCancelable(false) // Impide que se cierre si el usuario pulsa fuera
             .setPositiveButton("Entendido, ir a Ajustes") { dialog, _ ->
                 dialog.dismiss()
-                launchSystemSettings() // Abre la ventana nativa de la app tras leer el texto
+                launchSystemSettings() // Abre la ventana nativa de la app en el móvil
             }
             .show()
     }
@@ -219,16 +219,15 @@ class MainActivity : Activity() {
             .show()
     }
 
-    // FUNCIÓN: Guarda el éxito y despierta los receptores de hardware a nivel de sistema operativo
+    // FUNCIÓN: Comprobación final que se ejecuta si el móvil ya tenía los permisos dados de antemano
     private fun finalizeActivation() {
-        saveEnabledState(true)
-        toggleAppComponents(true)
-        
-        AlertDialog.Builder(this)
-            .setTitle("¡App Lista!")
-            .setMessage("Los permisos han sido configurados correctamente.")
-            .setPositiveButton("Entendido") { dialog, _ -> dialog.dismiss() }
-            .show()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && powerManager.isIgnoringBatteryOptimizations(packageName)) {
+            // Si el procesador confirma que ya estaba en la lista blanca, encendemos el interruptor de golpe
+            saveEnabledState(true)
+            switchEnable.isChecked = true
+            toggleAppComponents(true)
+            Toast.makeText(this, "Permisos otorgados!", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun saveEnabledState(state: Boolean) {
@@ -270,25 +269,32 @@ class MainActivity : Activity() {
         packageManager.setComponentEnabledSetting(receiver, state, PackageManager.DONT_KILL_APP)
     }
 
-    // FUNCIÓN DE VIGILANCIA: Se activa de forma automática cada vez que regresas a la aplicación
+    // FUNCIÓN DE VIGILANCIA: Se activa de forma automática cada vez que el usuario regresa a la pantalla de la app
     override fun onResume() {
         super.onResume()
         
-        // Verificamos de forma directa con el procesador si el usuario ya ha concedido la exención de batería
+        // Interrogamos directamente al hardware de Android para comprobar el estado de la batería
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val isIgnoring = powerManager.isIgnoringBatteryOptimizations(packageName)
+            val isAppSavedAsEnabled = prefs.getBoolean("enabled", false)
             
-            // Si venimos de los Ajustes y el permiso ya es positivo, finalizamos la activación con éxito real
-            if (isIgnoring && !prefs.getBoolean("enabled", false)) {
-                finalizeActivation()
+            // CASO A: El usuario viene de los Ajustes y ha puesto con éxito el modo "Sin Restricciones"
+            if (isIgnoring && !isAppSavedAsEnabled) {
+                // Guardamos el éxito en memoria y encendemos el interruptor de la pantalla automáticamente
+                saveEnabledState(true)
+                switchEnable.isChecked = true
+                toggleAppComponents(true)
+                Toast.makeText(this, "¡${getString(R.string.app_name)} iniciada con éxito!", Toast.LENGTH_LONG).show()
             }
-            // Por el contrario, si la app estaba encendida pero el usuario revocó el permiso por detrás, la apagamos
-            else if (!isIgnoring && prefs.getBoolean("enabled", false)) {
+            // CASO B: La app estaba encendida pero el usuario ha revocado el permiso desde los ajustes del móvil
+            else if (!isIgnoring && isAppSavedAsEnabled) {
+                // Apagamos el interruptor de inmediato por seguridad y avisamos del fallo de fiabilidad
                 turnOffAppWithDialog(
                     "Permisos Modificados",
-                    "La app ha sido desactivada por falta de permisos."
+                    "Faltan permisos esenciales para que la aplicación funcione correctamente."
                 )
             }
         }
     }
+
 }

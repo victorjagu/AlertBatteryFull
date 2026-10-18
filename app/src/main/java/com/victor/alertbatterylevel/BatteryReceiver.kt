@@ -186,16 +186,16 @@ class BatteryReceiver : BroadcastReceiver() {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(CHANNEL_ID, "Alertas de Batería", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Avisos de carga completa optimizados"
+            val channel = NotificationChannel(CHANNEL_ID, context.getString(R.string.notification_channel_name), NotificationManager.IMPORTANCE_HIGH).apply {
+                description = context.getString(R.string.notification_channel_desc)
                 enableLights(true)
             }
             nm.createNotificationChannel(channel)
         }
 
-        val title = "¡Carga Alcanzada!"
         // Sincronizamos la notificación visual con el molde único de strings.xml
-        val text = context.getString(R.string.msg_visual_template, pct)
+        val title = context.getString(R.string.msg_notif_title)
+        val text = context.getString(R.string.msg_notif_text, pct)
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(context.resources.getIdentifier("ic_launcher", "mipmap", context.packageName))

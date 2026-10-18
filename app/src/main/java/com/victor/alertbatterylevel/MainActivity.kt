@@ -162,41 +162,47 @@ class MainActivity : Activity() {
         }
     }
 
-    // FLUJO 2: Redirección segura a los ajustes para desactivar la optimización de batería
+    // FLUJO 2: Abre el cuadro nativo directo de Google para desactivar la optimización de batería
     private fun checkBatteryOptimizationFlow() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            // Comprobamos si el móvil ya tiene a esta app en la lista blanca de "Sin Restricciones"
             if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
-                // Al no estar permitida, abrimos el menú nativo del sistema para que el usuario la configure
-                launchSystemSettings()
-                // Mostramos un diálogo emergente con botón Aceptar explicando los pasos exactos
-                turnOffAppWithDialog(
-                    "Optimización de Batería",
-                    "Para que los avisos suenen correctamente con la pantalla bloqueada, es obligatorio cambiar la batería a 'SIN RESTRICCIONES' en el menú que se acaba de abrir."
-                )
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                try {
+                    startActivityForResult(intent, 102)
+                } catch (e: Exception) {
+                    showManualInstructionsDialog() // Ruta de rescate si falla el intent
+                }
                 return
             }
         }
-        // Si ya está en la lista blanca, la aplicación se activa oficialmente
         finalizeActivation()
     }
 
-
-    // CAPTURA DE RESPUESTA DE BATERÍA: Se ejecuta cuando el usuario responde al cuadro flotante de la batería
+    // CAPTURA DE BATERÍA NATIVA: Se ejecuta tras responder al cuadro central de Google
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 102) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && powerManager.isIgnoringBatteryOptimizations(packageName)) {
-                // CONFIGURACIÓN CORRECTA: Activación finalizada
-                finalizeActivation()
-            } else {
-                // RESTRICCIÓN MANTENIDA: El usuario le dio a "Denegar". Apagamos la app y avisamos con diálogo estable
-                turnOffAppWithDialog(
-                    "Optimización Activa",
-                    "Has denegado la ejecución libre en segundo plano. El sistema operativo matará la app en reposo y no sonará. La aplicación se ha desactivado por seguridad."
-                )
-            }
+            // COMBO SECUENCIAL OBLIGATORIO: Haya aceptado o no, le enviamos a los Ajustes de la App
+            showManualInstructionsDialog()
         }
+    }
+
+    // FUNCIÓN: Muestra la ventana con los pasos exactos y redirige al usuario a los Ajustes de la Aplicación al pulsar el botón
+    private fun showManualInstructionsDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Ajustes de Fiabilidad")
+            .setMessage("Para garantizar que la alerta suene siempre con la pantalla bloqueada, realiza lo siguiente en el menú que se va a abrir:\n\n" +
+                        "1. Entra en 'Batería' y selecciona 'SIN RESTRICCIONES' (u 'Optimizar consumo' -> Desactivar).\n\n" +
+                        "2. Activa el 'INICIO AUTOMÁTICO' o 'Inicio secundario' si tu móvil dispone de esa opción.\n\n" +
+                        "3. Verifica que los permisos de Notificaciones sigan activos.")
+            .setCancelable(false)
+            .setPositiveButton("Entendido, ir a Ajustes") { dialog, _ ->
+                dialog.dismiss()
+                launchSystemSettings() // Abre la ventana nativa de la app tras leer el texto
+            }
+            .show()
     }
 
     // FUNCIÓN: Muestra un diálogo flotante de tamaño completo con un botón Aceptar para apagar el interruptor

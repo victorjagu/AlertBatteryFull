@@ -42,7 +42,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         
         // MODO OSCURO: Aplicamos el tema negro puro OLED antes de dibujar las vistas
-        setTheme(R.style.Theme.Theme_AlertBattery)
+        setTheme(R.style.Theme_AlertBattery)
         
         // INTERFAZ: Inflamos el diseño visual definido en el archivo XML
         setContentView(R.layout.activity_main)

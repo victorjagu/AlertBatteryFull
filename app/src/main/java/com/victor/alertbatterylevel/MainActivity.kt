@@ -76,7 +76,7 @@ class MainActivity : Activity() {
         seekPercentage.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
                 val pct = if (progress < 1) 1 else progress
-                tvPercentageLabel.text = context.getString(R.string.ui_battery_target)
+                tvPercentageLabel.text = getString(R.string.ui_battery_target)
                 prefs.edit().putInt("target_pct", pct).apply()
             }
             override fun onStartTrackingTouch(sb: SeekBar?) {}
@@ -130,7 +130,7 @@ class MainActivity : Activity() {
         seekVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
                 // Actualizamos el número del volumen dinámicamente en la pantalla (Ej: 65%)
-                tvVolumeLabel.text = context.getString(R.string.ui_volume_alert)
+                tvVolumeLabel.text = getString(R.string.ui_volume_alert)
                 // Registramos el valor en el almacenamiento interno
                 prefs.edit().putInt("volume", progress).apply()
             }
@@ -196,7 +196,7 @@ class MainActivity : Activity() {
                         val realVisualMessage = getString(R.string.msg_notif_text, currentTargetPct)
                         
                         val autoCloseDialog = AlertDialog.Builder(this)
-                            .setTitle(context.getString(R.string.msg_notif_title))
+                            .setTitle(getString(R.string.msg_notif_title))
                             .setMessage(realVisualMessage)
                             .setCancelable(false)
                             .create()
@@ -241,8 +241,8 @@ class MainActivity : Activity() {
             } else {
                 // PERMISO DENEGADO: Apagamos el interruptor y mostramos una ventana grande con botón Aceptar
                 turnOffAppWithDialog(
-                    context.getString(R.string.dialog_permission_required_title),
-                    context.getString(R.string.dialog_permission_required_text)
+                    getString(R.string.dialog_permission_required_title),
+                    getString(R.string.dialog_permission_required_text)
                 )
             }
         }
@@ -278,10 +278,10 @@ class MainActivity : Activity() {
     // FUNCIÓN: Muestra la guía y redirige al usuario de forma directa a los Ajustes de la Aplicación
     private fun showManualInstructionsDialog() {
         AlertDialog.Builder(this)
-            .setTitle(context.getString(R.string.dialog_reliability_title))
-            .setMessage(context.getString(R.string.dialog_reliability_text))
+            .setTitle(getString(R.string.dialog_reliability_title))
+            .setMessage(getString(R.string.dialog_reliability_text))
             .setCancelable(false) // Impide que se cierre si el usuario pulsa fuera
-            .setPositiveButton(context.getString(R.string.dialog_reliability_btn)) { dialog, _ ->
+            .setPositiveButton(getString(R.string.dialog_reliability_btn)) { dialog, _ ->
                 dialog.dismiss()
                 isWaitingForSettings = true    // Avisamos que el usuario está saliendo activamente a configurar los menús
                 launchSystemSettings() // Abre la ventana nativa de la app en el móvil
@@ -299,7 +299,7 @@ class MainActivity : Activity() {
             .setTitle(title)
             .setMessage(message)
             .setCancelable(false) // Impide que la ventana se cierre si pulsa fuera de ella
-            .setPositiveButton(context.getString(R.string.alertdialog_btn)) { dialog, _ -> dialog.dismiss() }
+            .setPositiveButton(getString(R.string.alertdialog_btn)) { dialog, _ -> dialog.dismiss() }
             .show()
     }
 
@@ -310,7 +310,7 @@ class MainActivity : Activity() {
             saveEnabledState(true)
             switchEnable.isChecked = true
             toggleAppComponents(true)
-            Toast.makeText(this, context.getString(R.string.toast_permissions_granted), Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.toast_permissions_granted), Toast.LENGTH_LONG).show()
         }
     }
 
@@ -325,11 +325,11 @@ class MainActivity : Activity() {
         
         val pct = prefs.getInt("target_pct", 100)
         seekPercentage.progress = pct
-        tvPercentageLabel.text = context.getString(R.string.ui_battery_target)
+        tvPercentageLabel.text = getString(R.string.ui_battery_target)
         
         val vol = prefs.getInt("volume", 80)
         seekVolume.progress = vol
-        tvVolumeLabel.text = context.getString(R.string.ui_volume_alert)
+        tvVolumeLabel.text = getString(R.string.ui_volume_alert)
         
         when (prefs.getInt("sound_type", 0)) {
             1 -> rgSoundType.check(R.id.rb_beep)
@@ -368,13 +368,13 @@ class MainActivity : Activity() {
                 saveEnabledState(true)
                 switchEnable.isChecked = true
                 toggleAppComponents(true)
-                Toast.makeText(this, context.getString(R.string.toast_app_started_success), Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.toast_app_started_success), Toast.LENGTH_LONG).show()
             }
             // Si la app estaba activa en disco pero el usuario revocó el permiso por detrás en el móvil
             else if (!isIgnoring && isAppSavedAsEnabled) {
                 turnOffAppWithDialog(
-                    context.getString(R.string.dialog_permissions_modified_title),
-                    context.getString(R.string.dialog_permissions_modified_text)
+                    getString(R.string.dialog_permissions_modified_title),
+                    getString(R.string.dialog_permissions_modified_text)
                 )
             }
         }

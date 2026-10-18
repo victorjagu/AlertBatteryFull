@@ -116,7 +116,11 @@
             android:max="100"
             android:progress="80"
             android:layout_marginTop="8dp"
-            android:layout_marginBottom="32dp"/>
+            android:layout_marginBottom="32dp"
+            android:splitTrack="false"
+            android:background="?android:attr/selectableItemBackground"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"/>
 
         <!-- Configuración de optimización de batería (Para Samsung, Xiaomi, etc) -->
         <Button

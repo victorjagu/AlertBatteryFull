@@ -100,25 +100,26 @@ class MainActivity : Activity() {
 
         // DESLIZADOR DE VOLUMEN CON EMISIÓN DE BEEP DE PRUEBA
         seekVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            private var toneGenerator: ToneGenerator? = null
-
             override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
+                // Actualizamos el número del volumen dinámicamente en la pantalla (Ej: 65%)
                 tvVolumeLabel.text = "Volumen del aviso: $progress%"
+                // Registramos el valor en el almacenamiento interno
                 prefs.edit().putInt("volume", progress).apply()
-
-                if (fromUser) {
-                    try {
-                        if (toneGenerator == null) {
-                            toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, progress)
-                        }
-                        toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 100)
-                    } catch (e: Exception) {}
-                }
             }
             override fun onStartTrackingTouch(sb: SeekBar?) {}
             override fun onStopTrackingTouch(sb: SeekBar?) {
-                toneGenerator?.release()
-                toneGenerator = null
+                // El usuario ha soltado la barra: calculamos el volumen final real
+                val currentProgress = sb?.progress ?: 80
+                try {
+                    // Inicializamos el motor de sonido con el volumen exacto seleccionado al soltar
+                    val toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, currentProgress)
+                    // Emitimos un único Beep limpio de 150ms para verificar la potencia real
+                    toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
+                    // Liberamos el hardware inmediatamente para ahorrar memoria RAM
+                    sb?.postDelayed({ toneGenerator.release() }, 200)
+                } catch (e: Exception) {
+                    // Salvaguarda por si el hardware del chip de audio está ocupado
+                }
             }
         })
 

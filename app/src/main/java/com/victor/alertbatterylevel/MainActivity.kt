@@ -27,6 +27,9 @@ class MainActivity : Activity() {
     
     // HARDWARE: Gestor de energía del sistema operativo para verificar el ahorro de batería
     private val powerManager by lazy { getSystemService(Context.POWER_SERVICE) as PowerManager }
+
+    // Variable de control global
+    private var isWaitingForSettings = false
     
     // COMPONENTES VISUALES: Declaración de los interruptores y selectores de la pantalla
     private lateinit var switchEnable: Switch
@@ -38,7 +41,7 @@ class MainActivity : Activity() {
     private lateinit var tvVolumeLabel: TextView
     private lateinit var rgSoundType: RadioGroup
     private lateinit var btnBatterySettings: Button
-
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -201,6 +204,7 @@ class MainActivity : Activity() {
             .setCancelable(false) // Impide que se cierre si el usuario pulsa fuera
             .setPositiveButton("Entendido, ir a Ajustes") { dialog, _ ->
                 dialog.dismiss()
+                isWaitingForSettings = true    // Avisamos que el usuario está saliendo activamente a configurar los menús
                 launchSystemSettings() // Abre la ventana nativa de la app en el móvil
             }
             .show()
@@ -274,22 +278,21 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         
-        // Interrogamos directamente al hardware de Android para comprobar el estado de la batería
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val isIgnoring = powerManager.isIgnoringBatteryOptimizations(packageName)
             val isAppSavedAsEnabled = prefs.getBoolean("enabled", false)
             
-            // CASO A: El usuario viene de los Ajustes y ha puesto con éxito el modo "Sin Restricciones"
-            if (isIgnoring && !isAppSavedAsEnabled) {
-                // Guardamos el éxito en memoria y encendemos el interruptor de la pantalla automáticamente
+            // EL CANDADO REAL: Solo comprobamos el éxito si el usuario estaba editando los ajustes y acaba de volver
+            if (isIgnoring && !isAppSavedAsEnabled && isWaitingForSettings) {
+                // Apagamos la bandera para la siguiente vez
+                isWaitingForSettings = false
                 saveEnabledState(true)
                 switchEnable.isChecked = true
                 toggleAppComponents(true)
                 Toast.makeText(this, "¡${getString(R.string.app_name)} iniciada con éxito!", Toast.LENGTH_LONG).show()
             }
-            // CASO B: La app estaba encendida pero el usuario ha revocado el permiso desde los ajustes del móvil
+            // Si la app estaba activa en disco pero el usuario revocó el permiso por detrás en el móvil
             else if (!isIgnoring && isAppSavedAsEnabled) {
-                // Apagamos el interruptor de inmediato por seguridad y avisamos del fallo de fiabilidad
                 turnOffAppWithDialog(
                     "Permisos Modificados",
                     "Faltan permisos esenciales para que la aplicación funcione correctamente."
@@ -297,5 +300,4 @@ class MainActivity : Activity() {
             }
         }
     }
-
 }

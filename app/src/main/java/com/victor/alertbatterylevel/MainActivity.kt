@@ -17,6 +17,7 @@ import android.widget.Button
 import android.widget.RadioGroup
 import android.widget.SeekBar
 import android.widget.Switch
+import android.widget.Toast
 import android.widget.TextView
 
 class MainActivity : Activity() {

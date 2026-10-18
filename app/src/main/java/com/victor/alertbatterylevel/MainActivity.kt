@@ -30,7 +30,7 @@ class MainActivity : Activity() {
     private lateinit var btnBatterySettings: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        setTheme(R.style.Theme.AlertBattery) // Carga el modo oscuro nativo por hardware
+        setTheme(R.style.Theme_AlertBattery) // Carga el modo oscuro nativo por hardware
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 

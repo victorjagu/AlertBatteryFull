@@ -76,7 +76,7 @@ class MainActivity : Activity() {
         seekPercentage.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
                 val pct = if (progress < 1) 1 else progress
-                tvPercentageLabel.text = "Porcentaje objetivo: $pct%"
+                tvPercentageLabel.text = context.getString(R.string.label_percentage_target)
                 prefs.edit().putInt("target_pct", pct).apply()
             }
             override fun onStartTrackingTouch(sb: SeekBar?) {}

@@ -41,6 +41,7 @@ class MainActivity : Activity() {
     private lateinit var tvVolumeLabel: TextView
     private lateinit var rgSoundType: RadioGroup
     private lateinit var btnBatterySettings: Button
+    private var tts: android.speech.tts.TextToSpeech? = null
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,6 +68,9 @@ class MainActivity : Activity() {
 
         // MEMORIA: Leemos el almacenamiento para restaurar el estado anterior de la app
         loadPreferences()
+
+        // Arrancamos silenciosamente el sintetizador de voz para que funcione en las pruebas del usuario
+        tts = android.speech.tts.TextToSpeech(this) { status -> }
 
         // CONTROL DE PORCENTAJE OBJETIVO
         seekPercentage.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -147,14 +151,63 @@ class MainActivity : Activity() {
             }
         })
 
-        // GRUPO DE BOTONES DE RADIO PARA EL TIPO DE ALERTA
+        // SELECTOR DE TIPO DE SONIDO CON PRUEBAS FÍSICAS EN TIEMPO REAL
         rgSoundType.setOnCheckedChangeListener { _, checkedId ->
+            // 1. Calculamos el tipo y el volumen actual para la prueba
             val type = when (checkedId) {
-                R.id.rb_beep -> 1
-                R.id.rb_silent -> 2
-                else -> 0
+                R.id.rb_beep -> 1    // Modo 1: Beep de hardware
+                R.id.rb_silent -> 2  // Modo 2: Solo mensaje visual
+                else -> 0            // Modo 0: Alerta por Voz
             }
             prefs.edit().putInt("sound_type", type).apply()
+            
+            val currentVolume = seekVolume.progress
+            val currentTargetPct = seekPercentage.progress
+
+            // 2. Ejecutamos la prueba con los mensajes reales de la aplicación
+            when (type) {
+                0 -> { // CASO DE ALERTA POR VOZ: Reproduce la frase exacta que dirá el vigilante en segundo plano
+                    try {
+                        // Construimos de forma idéntica la frase real usando el porcentaje seleccionado
+                        val realVoiceMessage = "Batería cargada al $currentTargetPct por ciento. Desenchufa el cargador."
+                        
+                        val params = Bundle().apply { 
+                            putInt(android.speech.tts.TextToSpeech.Engine.KEY_PARAM_STREAM, android.media.AudioManager.STREAM_NOTIFICATION) 
+                        }
+                        tts?.speak(realVoiceMessage, android.speech.tts.TextToSpeech.QUEUE_FLUSH, params, "PruebaTTS")
+                    } catch (e: Exception) {}
+                }
+                
+                1 -> { // CASO DE BEEP: Sonido físico limpio al volumen de la barra
+                    try {
+                        val toneGenerator = android.media.ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION, currentVolume)
+                        toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 150)
+                        seekVolume.postDelayed({ toneGenerator.release() }, 200)
+                    } catch (e: Exception) {}
+                }
+                
+                2 -> { // CASO SOLO MENSAJE: Muestra en la ventana el texto idéntico que se enviará al Smartwatch
+                    try {
+                        // Extraemos de forma exacta el formato visual de la alerta
+                        val realVisualMessage = "Carga al $currentTargetPct% completada."
+                        
+                        val autoCloseDialog = AlertDialog.Builder(this)
+                            .setTitle("Aviso de Notificación")
+                            .setMessage(realVisualMessage)
+                            .setCancelable(false)
+                            .create()
+                            
+                        autoCloseDialog.show()
+
+                        // Temporizador asíncrono que destruye la ventana a los 7 segundos exactos
+                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                            if (autoCloseDialog.isShowing) {
+                                autoCloseDialog.dismiss()
+                            }
+                        }, 7000)
+                    } catch (e: Exception) {}
+                }
+            }
         }
 
         // BOTÓN MANUAL DE AUXILIO: Mantiene la ruta tradicional si el usuario quiere revisar ajustes

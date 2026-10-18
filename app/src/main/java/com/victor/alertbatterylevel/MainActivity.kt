@@ -14,6 +14,7 @@ import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
+import com.victor.alertbatterylevel.R
 
 class MainActivity : Activity() {
 

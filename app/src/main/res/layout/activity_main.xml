@@ -10,6 +10,17 @@
         android:orientation="vertical"
         android:padding="24dp">
 
+        <!-- Icono Oficial de la App: Centrado, optimizado para OLED y usado para forzar su permanencia en el APK -->
+        <ImageView
+            android:id="@+id/img_app_logo"
+            android:layout_width="96dp"
+            android:layout_height="96dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="16dp"
+            android:src="@drawable/ic_launcher"
+            android:contentDescription="Logo Alert Battery" />
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

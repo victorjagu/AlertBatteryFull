@@ -169,7 +169,7 @@ class MainActivity : Activity() {
                 0 -> { // CASO DE ALERTA POR VOZ: Reproduce la frase exacta que dirá el vigilante en segundo plano
                     try {
                         // Construimos de forma idéntica la frase real usando el porcentaje seleccionado
-                        val realVoiceMessage = "Batería cargada al $currentTargetPct por ciento. Desenchufa el cargador."
+                        val realVoiceMessage = getString(R.string.msg_voice_template, currentTargetPct)
                         
                         val params = Bundle().apply { 
                             putInt(android.speech.tts.TextToSpeech.Engine.KEY_PARAM_STREAM, android.media.AudioManager.STREAM_NOTIFICATION) 
@@ -189,7 +189,7 @@ class MainActivity : Activity() {
                 2 -> { // CASO SOLO MENSAJE: Muestra en la ventana el texto idéntico que se enviará al Smartwatch
                     try {
                         // Extraemos de forma exacta el formato visual de la alerta
-                        val realVisualMessage = "Carga al $currentTargetPct% completada."
+                        val realVisualMessage = getString(R.string.msg_visual_template, currentTargetPct)
                         
                         val autoCloseDialog = AlertDialog.Builder(this)
                             .setTitle("Aviso de Notificación")

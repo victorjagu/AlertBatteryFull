@@ -196,7 +196,7 @@ class BatteryReceiver : BroadcastReceiver() {
         val text = if (pct == 100) "El dispositivo se ha cargado por completo." else "La batería ha llegado al $pct% establecido."
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(context.resources.getIdentifier("ic_launcher", "drawable", context.packageName))
+            .setSmallIcon(context.resources.getIdentifier("ic_launcher", "mipmap", context.packageName))
             .setContentTitle(title)
             .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_HIGH)

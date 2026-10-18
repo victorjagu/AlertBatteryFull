@@ -1,34 +1,60 @@
 plugins {
+    // Plugin oficial para compilar aplicaciones Android
     id 'com.android.application'
+    // Plugin oficial que activa el soporte y empaquetado de código Kotlin puro
     id 'org.jetbrains.kotlin.android'
 }
 
 android {
+    // Espacio de nombres único que identifica los recursos internos de la app
     namespace 'com.victor.alertbatterylevel'
+    
+    // SDK de Android 14+ usado para compilar el proyecto de forma moderna
     compileSdk 34
 
     defaultConfig {
+        // Identificador único de la aplicación en el sistema operativo Android
         applicationId "com.victor.alertbatterylevel"
+        
+        // Versión mínima de Android compatible (Android 14+, API 34)
         minSdk 34
+        
+        // Versión de Android para la que se ha optimizado el comportamiento de la app
         targetSdk 34
+        
+        // Número de versión interno para el sistema operativo (incrementar para actualizar)
         versionCode 1
+        
+        // Nombre de versión visible para el usuario (opcional, incrementar para actualizar)
         versionName "1.0"
     }
 
     buildTypes {
         release {
+            // Activa ProGuard/R8 para comprimir, ofuscar y eliminar código sobrante
             minifyEnabled true
+            
+            // Elimina recursos visuales (imágenes, XMLs) que no se usen en el APK
             shrinkResources true
+            
+            // Reglas oficiales de optimización extrema de Android por defecto
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 
+    // Configuración obligatoria para enlazar el motor de Java con Kotlin 100% nativo
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
 
+    // Le indica al compilador de Kotlin que traduzca el código al entorno Java 17
     kotlinOptions {
         jvmTarget = '17'
     }
+}
+
+dependencies {
+    // Necesaria para que funcione NotificationCompat y las alertas visuales del Smartwatch
+    implementation 'androidx.core:core-ktx:1.12.0'
 }

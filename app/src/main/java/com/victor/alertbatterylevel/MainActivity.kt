@@ -1,6 +1,7 @@
 package com.victor.alertbatterylevel
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -17,7 +18,6 @@ import android.widget.RadioGroup
 import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
-import android.widget.Toast
 
 class MainActivity : Activity() {
 
@@ -27,7 +27,7 @@ class MainActivity : Activity() {
     // HARDWARE: Gestor de energía del sistema operativo para verificar el ahorro de batería
     private val powerManager by lazy { getSystemService(Context.POWER_SERVICE) as PowerManager }
     
-    // COMPONENTES VISUALES: Declaración tardía de los interruptores y selectores de la pantalla
+    // COMPONENTES VISUALES: Declaración de los interruptores y selectores de la pantalla
     private lateinit var switchEnable: Switch
     private lateinit var switchLoop: Switch
     private lateinit var switchVibrate: Switch
@@ -41,10 +41,10 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // MODO OSCURO: Avisamos al hardware que aplique el tema negro puro OLED antes de dibujar
-        setTheme(R.style.Theme_AlertBattery)
+        // MODO OSCURO: Aplicamos el tema negro puro OLED antes de dibujar las vistas
+        setTheme(R.style.Theme.Theme_AlertBattery)
         
-        // INTERFAZ: Inflamos y pintamos el diseño visual definido en el archivo XML
+        // INTERFAZ: Inflamos el diseño visual definido en el archivo XML
         setContentView(R.layout.activity_main)
 
         // ENLACES: Conectamos las variables de Kotlin con los ID del plano visual XML
@@ -58,92 +58,177 @@ class MainActivity : Activity() {
         rgSoundType = findViewById(R.id.rg_sound_type)
         btnBatterySettings = findViewById(R.id.btn_battery_settings)
 
-        // MEMORIA: Leemos el disco duro para restaurar el estado en el que el usuario dejó la app
+        // MEMORIA: Leemos el almacenamiento para restaurar el estado anterior de la app
         loadPreferences()
 
-        // BLOQUE 1: DESLIZADOR DEL PORCENTAJE DE BATERÍA OBJETIVO
+        // CONTROL DE PORCENTAJE OBJETIVO
         seekPercentage.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
-                // Forzamos un mínimo del 1% para evitar errores de división en el procesador
                 val pct = if (progress < 1) 1 else progress
-                // Actualizamos el texto en pantalla en tiempo real (Ej: Porcentaje objetivo: 80%)
                 tvPercentageLabel.text = "Porcentaje objetivo: $pct%"
-                // Guardamos el nuevo porcentaje de forma instantánea en el archivo interno
                 prefs.edit().putInt("target_pct", pct).apply()
             }
             override fun onStartTrackingTouch(sb: SeekBar?) {}
             override fun onStopTrackingTouch(sb: SeekBar?) {}
         })
 
-        // BLOQUE 2: INTERRUPTOR PRINCIPAL (ENCENDER / APAGAR LA APP)
+        // INTERRUPTOR PRINCIPAL: Activa la app y arranca el flujo inteligente de permisos
         switchEnable.setOnCheckedChangeListener { _, isChecked ->
-            // Guardamos el estado del interruptor en el disco duro interno
-            prefs.edit().putBoolean("enabled", isChecked).apply()
-            // Activamos o congelamos los receptores a nivel de sistema operativo
-            toggleAppComponents(isChecked)
-
-            // Si el usuario enciende la app, disparamos la auditoría automática de requisitos
             if (isChecked) {
-                auditApplicationRequirements()
+                // Si el usuario enciende el interruptor, validamos primero las Notificaciones
+                checkNotificationPermissionFlow()
+            } else {
+                // Si apaga, guardamos el estado y apagamos los receptores de hardware
+                saveEnabledState(false)
+                toggleAppComponents(false)
             }
         }
 
-        // BLOQUE 3: INTERRUPTOR DEL BUCLE DE REPETICIÓN (CADA 10 SEGUNDOS)
+        // INTERRUPTOR DEL BUCLE DE REPETICIÓN
         switchLoop.setOnCheckedChangeListener { _, isChecked -> 
             prefs.edit().putBoolean("loop", isChecked).apply() 
         }
 
-        // BLOQUE 4: INTERRUPTOR DE LA VIBRACIÓN NATIVA DE ALERTA
+        // INTERRUPTOR DE LA VIBRACIÓN NATIVA
         switchVibrate.setOnCheckedChangeListener { _, isChecked -> 
             prefs.edit().putBoolean("vibrate", isChecked).apply() 
         }
 
-        // BLOQUE 5: DESLIZADOR DE VOLUMEN CON EMISIÓN DE BEEP DE PRUEBA
+        // DESLIZADOR DE VOLUMEN CON EMISIÓN DE BEEP DE PRUEBA
         seekVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             private var toneGenerator: ToneGenerator? = null
 
             override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
-                // Actualizamos el número del volumen dinámicamente en la pantalla (Ej: 65%)
                 tvVolumeLabel.text = "Volumen del aviso: $progress%"
-                // Registramos el valor del volumen en el almacenamiento interno
                 prefs.edit().putInt("volume", progress).apply()
 
-                // Si el cambio lo hace el usuario arrastrando el dedo, probamos el altavoz
                 if (fromUser) {
                     try {
                         if (toneGenerator == null) {
-                            // Inicializamos el motor de ondas de hardware con el volumen seleccionado
                             toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, progress)
                         }
-                        // Emitimos un tono puro digital (Beep) de 100 milisegundos
                         toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 100)
                     } catch (e: Exception) {}
                 }
             }
             override fun onStartTrackingTouch(sb: SeekBar?) {}
             override fun onStopTrackingTouch(sb: SeekBar?) {
-                // Liberamos el chip de sonido al soltar la barra para dejar la memoria RAM vacía
                 toneGenerator?.release()
                 toneGenerator = null
             }
         })
 
-        // BLOQUE 6: GRUPO DE BOTONES DE RADIO PARA EL TIPO DE ALERTA (VOZ / BEEP / SILENCIOSO)
+        // GRUPO DE BOTONES DE RADIO PARA EL TIPO DE ALERTA
         rgSoundType.setOnCheckedChangeListener { _, checkedId ->
             val type = when (checkedId) {
-                R.id.rb_beep -> 1    // Modo 1: Beep de hardware puro
-                R.id.rb_silent -> 2  // Modo 2: Solo notificación visual para el Smartwatch
-                else -> 0            // Modo 0: Motor de Voz hablada de Google
+                R.id.rb_beep -> 1
+                R.id.rb_silent -> 2
+                else -> 0
             }
-            // Guardamos el tipo de sonido seleccionado en las preferencias del sistema
             prefs.edit().putInt("sound_type", type).apply()
         }
 
-        // BLOQUE 7: BOTÓN MANUAL DE AUXILIO PARA ABRIR LOS AJUSTES DEL SISTEMA
+        // BOTÓN MANUAL DE AUXILIO: Mantiene la ruta tradicional si el usuario quiere revisar ajustes
         btnBatterySettings.setOnClickListener { launchSystemSettings() }
     }
 
-    // FUNCIÓN: Carga los datos guardados en el almacenamiento para poner los botones en su sitio
+    // FLUJO 1: Control estricto de Notificaciones con apagado automático si se deniega
+    private fun checkNotificationPermissionFlow() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val permission = "android.permission.POST_NOTIFICATIONS"
+            if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
+                // Lanzamos el cuadro emergente del sistema operativo en la pantalla
+                requestPermissions(arrayOf(permission), 101)
+                return
+            }
+        }
+        // Si ya tiene el permission concedido, pasamos al flujo de la batería
+        checkBatteryOptimizationFlow()
+    }
+
+    // CAPTURA DE RESPUESTA DE NOTIFICACIÓN: Se ejecuta cuando el usuario pulsa "Permitir" o "Denegar"
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        if (requestCode == 101) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // PERMISO CONCEDIDO: Pasamos de inmediato a la verificación de la batería
+                checkBatteryOptimizationFlow()
+            } else {
+                // PERMISO DENEGADO: Apagamos el interruptor y mostramos una ventana grande con botón Aceptar
+                turnOffAppWithDialog(
+                    "Permiso Requerido",
+                    "Para poder enviarte los avisos de carga completa a tu Smartwatch, es obligatorio que permitas las notificaciones. La aplicación se mantendrá desactivada."
+                )
+            }
+        }
+    }
+
+    // FLUJO 2: Diálogo emergente directo para desactivar la optimización con un solo botón flotante central
+    private fun checkBatteryOptimizationFlow() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                // Usamos la ventana oficial directa (ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                try {
+                    startActivityForResult(intent, 102)
+                } catch (e: Exception) {
+                    launchSystemSettings()
+                }
+                return
+            }
+        }
+        // Si supera ambos controles, la aplicación se activa oficialmente y se guarda en disco
+        finalizeActivation()
+    }
+
+    // CAPTURA DE RESPUESTA DE BATERÍA: Se ejecuta cuando el usuario responde al cuadro flotante de la batería
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 102) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                // CONFIGURACIÓN CORRECTA: Activación finalizada
+                finalizeActivation()
+            } else {
+                // RESTRICCIÓN MANTENIDA: El usuario le dio a "Denegar". Apagamos la app y avisamos con diálogo estable
+                turnOffAppWithDialog(
+                    "Optimización Activa",
+                    "Has denegado la ejecución libre en segundo plano. El sistema operativo matará la app en reposo y no sonará. La aplicación se ha desactivado por seguridad."
+                )
+            }
+        }
+    }
+
+    // FUNCIÓN: Muestra un diálogo flotante de tamaño completo con un botón Aceptar para apagar el interruptor
+    private fun turnOffAppWithDialog(title: String, message: String) {
+        saveEnabledState(false)
+        switchEnable.isChecked = false
+        toggleAppComponents(false)
+
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setCancelable(false) // Impide que la ventana se cierre si pulsa fuera de ella
+            .setPositiveButton("Aceptar") { dialog, _ -> dialog.dismiss() }
+            .show()
+    }
+
+    // FUNCIÓN: Guarda el éxito y despierta los receptores de hardware a nivel de sistema operativo
+    private fun finalizeActivation() {
+        saveEnabledState(true)
+        toggleAppComponents(true)
+        
+        AlertDialog.Builder(this)
+            .setTitle("¡App Lista!")
+            .setMessage("Los permisos han sido configurados correctamente. El vigilante de batería ya se encuentra activo en segundo plano con consumo del 0% en reposo.")
+            .setPositiveButton("Entendido") { dialog, _ -> dialog.dismiss() }
+            .show()
+    }
+
+    private fun saveEnabledState(state: Boolean) {
+        prefs.edit().putBoolean("enabled", state).apply()
+    }
+
     private fun loadPreferences() {
         switchEnable.isChecked = prefs.getBoolean("enabled", false)
         switchLoop.isChecked = prefs.getBoolean("loop", true)
@@ -164,82 +249,41 @@ class MainActivity : Activity() {
         }
     }
 
-    // FUNCIÓN: Lanzamiento secuencial y obligatorio de los permisos de salud de la aplicación
-    private fun auditApplicationRequirements() {
-        // CONTROL 1: Permisos de Notificación (Obligatorio a partir de Android 13/14+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val permission = "android.permission.POST_NOTIFICATIONS"
-            if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
-                // Desplegamos la ventana emergente oficial del sistema en mitad de la pantalla
-                requestPermissions(arrayOf(permission), 101)
-                Toast.makeText(this, "¡OBLIGATORIO! Permite las notificaciones para recibir los avisos de carga.", Toast.LENGTH_LONG).show()
-                return // Frenamos la ejecución aquí para obligar al usuario a responder al cuadro
-            }
-        }
-
-        // CONTROL 2: Optimización de Batería (Saltarse el reposo profundo de Samsung/Xiaomi/Oppo)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            // Comprobamos si el teléfono mantiene la app monitorizada en modo ahorro
-            if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
-                // Forzamos al usuario a ir a la pantalla de configuración interna del móvil
-                launchSystemSettings()
-                Toast.makeText(this, "¡ATENCIÓN! Cambia la batería de la app a 'SIN RESTRICCIONES' para que funcione en reposo.", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
-    // FUNCIÓN: Crea un puente de comunicación para abrir el menú de Ajustes nativo de la app en Android
     private fun launchSystemSettings() {
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
             data = Uri.fromParts("package", packageName, null)
         }
         try {
             startActivity(intent)
-        } catch (e: Exception) {
-            Toast.makeText(this, "Abre Ajustes -> Aplicaciones para dar permisos manualmente", Toast.LENGTH_SHORT).show()
-        }
+        } catch (e: Exception) {}
     }
 
-    // FUNCIÓN: Apagado y encendido radical de componentes para lograr un consumo 0% en OFF
     private fun toggleAppComponents(enable: Boolean) {
-        // Si es false, Android borra la app de la lista de ejecución en disco; el móvil la ignora por completo
         val state = if (enable) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED
         val receiver = ComponentName(this, BatteryReceiver::class.java)
         packageManager.setComponentEnabledSetting(receiver, state, PackageManager.DONT_KILL_APP)
     }
 
-    // FUNCIÓN DE VIGILANCIA: Se activa cada vez que la aplicación pasa a primer plano en la pantalla
     override fun onResume() {
         super.onResume()
-        // BUCLE DE INSISTENCIA: Si la app está encendida, comprobamos que no hayan quitado los permisos por detrás
+        // CONTROL DE SEGURIDAD PASIVO: Si el interruptor estaba encendido pero el usuario desconfiguró 
+        // los permisos por detrás desde los ajustes del móvil, apagamos la app de forma controlada al volver.
         if (switchEnable.isChecked) {
-            var needsAudit = false
-            
-            // Verificación persistente de la alerta de Notificaciones
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                if (checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) {
-                    needsAudit = true
-                }
+            var breached = false
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) {
+                breached = true
             }
-            
-            // Verificación persistente del permiso de la Batería sin restricciones
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
-                    needsAudit = true
-                }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                breached = true
             }
-
-            // Si falta cualquiera de los dos pilares de seguridad, bloqueamos la pantalla y volvemos a insistir
-            if (needsAudit) {
-                auditApplicationRequirements()
+            if (breached) {
+                turnOffAppWithDialog("Permisos Modificados", "Se han detectado cambios en los ajustes del sistema. La app no dispone de los permisos necesarios para trabajar en segundo plano y ha sido desactivada.")
             }
         }
     }
 
-    // FUNCIÓN DE CONSERVACIÓN: Se activa cuando el usuario minimiza la app o bloquea el teléfono
     override fun onPause() {
         super.onPause()
-        // Si el interruptor principal está apagado, destruimos la interfaz de la RAM inmediatamente para liberar espacio
         if (!switchEnable.isChecked) {
             finish()
         }

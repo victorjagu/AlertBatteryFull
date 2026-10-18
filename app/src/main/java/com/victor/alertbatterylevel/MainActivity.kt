@@ -76,7 +76,7 @@ class MainActivity : Activity() {
         seekPercentage.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
                 val pct = if (progress < 1) 1 else progress
-                tvPercentageLabel.text = getString(R.string.ui_battery_target)
+                tvPercentageLabel.text = getString(R.string.ui_battery_target, pct)
                 prefs.edit().putInt("target_pct", pct).apply()
             }
             override fun onStartTrackingTouch(sb: SeekBar?) {}
@@ -130,7 +130,7 @@ class MainActivity : Activity() {
         seekVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
                 // Actualizamos el número del volumen dinámicamente en la pantalla (Ej: 65%)
-                tvVolumeLabel.text = getString(R.string.ui_volume_alert)
+                tvVolumeLabel.text = getString(R.string.ui_volume_alert, progress)
                 // Registramos el valor en el almacenamiento interno
                 prefs.edit().putInt("volume", progress).apply()
             }
@@ -325,11 +325,11 @@ class MainActivity : Activity() {
         
         val pct = prefs.getInt("target_pct", 100)
         seekPercentage.progress = pct
-        tvPercentageLabel.text = getString(R.string.ui_battery_target)
+        tvPercentageLabel.text = getString(R.string.ui_battery_target, pct)
         
         val vol = prefs.getInt("volume", 80)
         seekVolume.progress = vol
-        tvVolumeLabel.text = getString(R.string.ui_volume_alert)
+        tvVolumeLabel.text = getString(R.string.ui_volume_alert, vol)
         
         when (prefs.getInt("sound_type", 0)) {
             1 -> rgSoundType.check(R.id.rb_beep)

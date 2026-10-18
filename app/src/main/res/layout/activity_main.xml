@@ -18,7 +18,7 @@
             android:layout_gravity="center_horizontal"
             android:layout_marginTop="16dp"
             android:layout_marginBottom="16dp"
-            android:src="@drawable/ic_launcher"
+            android:src="@mipmap/ic_launcher"
             android:contentDescription="Logo Alert Battery" />
 
         <!-- Titulo de la app -->

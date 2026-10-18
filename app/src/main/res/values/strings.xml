@@ -1,3 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Alert Battery</string>
+    
+    <!-- Plantilla universal para el mensaje de voz hablada -->
+    <string name="msg_voice_template">Batería cargada al %1$d por ciento. Desenchufa el cargador.</string>
 </resources>
+

@@ -24,6 +24,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
             android:text="Alert Battery Level"
             android:textSize="28sp"
             android:textStyle="bold"

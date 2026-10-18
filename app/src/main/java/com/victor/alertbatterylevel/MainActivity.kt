@@ -287,11 +287,4 @@ class MainActivity : Activity() {
             }
         }
     }
-
-    override fun onPause() {
-        super.onPause()
-        if (!switchEnable.isChecked) {
-            finish()
-        }
-    }
 }

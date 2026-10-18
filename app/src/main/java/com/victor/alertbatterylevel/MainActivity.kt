@@ -96,9 +96,30 @@ class MainActivity : Activity() {
             prefs.edit().putBoolean("loop", isChecked).apply() 
         }
 
-        // INTERRUPTOR DE LA VIBRACIÓN NATIVA
+        // INTERRUPTOR DE LA VIBRACIÓN NATIVA CON PULSO DE PRUEBA INSTANTÁNEO
         switchVibrate.setOnCheckedChangeListener { _, isChecked -> 
+            // Guardamos la preferencia en el almacenamiento interno
             prefs.edit().putBoolean("vibrate", isChecked).apply() 
+            
+            // Si el usuario enciende la vibración con el dedo, hacemos latir el motor de hardware
+            if (isChecked) {
+                try {
+                    // Accedemos de forma directa al chip del motor háptico del teléfono
+                    val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
+                    
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        // Android 8+: Emitimos un pulso moderno estándar de 200 milisegundos a potencia normal
+                        val effect = android.os.VibrationEffect.createOneShot(200, android.os.VibrationEffect.DEFAULT_AMPLITUDE)
+                        vibrator.vibrate(effect)
+                    } else {
+                        // Versiones antiguas de rescate para asegurar retrocompatibilidad
+                        @Suppress("DEPRECATION")
+                        vibrator.vibrate(200)
+                    }
+                } catch (e: Exception) {
+                    // Salvaguarda por si el fabricante tiene el motor ocupado por el sistema
+                }
+            }
         }
 
         // DESLIZADOR DE VOLUMEN CON EMISIÓN DE BEEP DE PRUEBA

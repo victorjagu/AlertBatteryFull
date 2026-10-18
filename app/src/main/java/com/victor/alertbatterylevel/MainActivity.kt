@@ -156,31 +156,31 @@ class MainActivity : Activity() {
                 // PERMISO DENEGADO: Apagamos el interruptor y mostramos una ventana grande con botón Aceptar
                 turnOffAppWithDialog(
                     "Permiso Requerido",
-                    "Para poder enviarte los avisos de carga completa a tu Smartwatch, es obligatorio que permitas las notificaciones. La aplicación se mantendrá desactivada."
+                    "Para poder enviarte los avisos de carga completa, es obligatorio que permitas las notificaciones."
                 )
             }
         }
     }
 
-    // FLUJO 2: Diálogo emergente directo para desactivar la optimización con un solo botón flotante central
+    // FLUJO 2: Redirección segura a los ajustes para desactivar la optimización de batería
     private fun checkBatteryOptimizationFlow() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            // Comprobamos si el móvil ya tiene a esta app en la lista blanca de "Sin Restricciones"
             if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
-                // Usamos la ventana oficial directa (ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                    data = Uri.parse("package:$packageName")
-                }
-                try {
-                    startActivityForResult(intent, 102)
-                } catch (e: Exception) {
-                    launchSystemSettings()
-                }
+                // Al no estar permitida, abrimos el menú nativo del sistema para que el usuario la configure
+                launchSystemSettings()
+                // Mostramos un diálogo emergente con botón Aceptar explicando los pasos exactos
+                turnOffAppWithDialog(
+                    "Optimización de Batería",
+                    "Para que los avisos suenen correctamente con la pantalla bloqueada, es obligatorio cambiar la batería a 'SIN RESTRICCIONES' en el menú que se acaba de abrir."
+                )
                 return
             }
         }
-        // Si supera ambos controles, la aplicación se activa oficialmente y se guarda en disco
+        // Si ya está en la lista blanca, la aplicación se activa oficialmente
         finalizeActivation()
     }
+
 
     // CAPTURA DE RESPUESTA DE BATERÍA: Se ejecuta cuando el usuario responde al cuadro flotante de la batería
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

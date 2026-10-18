@@ -139,10 +139,11 @@ class BatteryReceiver : BroadcastReceiver() {
     }
 
     private fun playVoiceAlert(context: Context, pct: Int, volume: Int) {
+        // Recuperamos de forma dinámica el mensaje del diccionario según el porcentaje real
         val message = if (pct == 100) {
-            "¡Batería cargada! Desconéctame por favor."
+            context.getString(R.string.msg_voice_full)
         } else {
-            "Batería al $pct por ciento. Desconéctame por favor."
+            context.getString(R.string.msg_voice_custom, pct)
         }
 
         // Inicialización ligera y al vuelo del motor TextToSpeech nativo de Google
@@ -193,7 +194,8 @@ class BatteryReceiver : BroadcastReceiver() {
         }
 
         val title = "¡Carga Alcanzada!"
-        val text = if (pct == 100) "El dispositivo se ha cargado por completo." else "La batería ha llegado al $pct% establecido."
+        // Sincronizamos la notificación visual con el molde único de strings.xml
+        val text = context.getString(R.string.msg_visual_template, pct)
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(context.resources.getIdentifier("ic_launcher", "mipmap", context.packageName))

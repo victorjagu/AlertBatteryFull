@@ -226,7 +226,7 @@ class MainActivity : Activity() {
         
         AlertDialog.Builder(this)
             .setTitle("¡App Lista!")
-            .setMessage("Los permisos han sido configurados correctamente. El vigilante de batería ya se encuentra activo en segundo plano con consumo del 0% en reposo.")
+            .setMessage("Los permisos han sido configurados correctamente.")
             .setPositiveButton("Entendido") { dialog, _ -> dialog.dismiss() }
             .show()
     }

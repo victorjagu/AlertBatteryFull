@@ -270,20 +270,24 @@ class MainActivity : Activity() {
         packageManager.setComponentEnabledSetting(receiver, state, PackageManager.DONT_KILL_APP)
     }
 
+    // FUNCIÓN DE VIGILANCIA: Se activa de forma automática cada vez que regresas a la aplicación
     override fun onResume() {
         super.onResume()
-        // CONTROL DE SEGURIDAD PASIVO: Si el interruptor estaba encendido pero el usuario desconfiguró 
-        // los permisos por detrás desde los ajustes del móvil, apagamos la app de forma controlada al volver.
-        if (switchEnable.isChecked) {
-            var breached = false
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) {
-                breached = true
+        
+        // Verificamos de forma directa con el procesador si el usuario ya ha concedido la exención de batería
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val isIgnoring = powerManager.isIgnoringBatteryOptimizations(packageName)
+            
+            // Si venimos de los Ajustes y el permiso ya es positivo, finalizamos la activación con éxito real
+            if (isIgnoring && !prefs.getBoolean("enabled", false)) {
+                finalizeActivation()
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !powerManager.isIgnoringBatteryOptimizations(packageName)) {
-                breached = true
-            }
-            if (breached) {
-                turnOffAppWithDialog("Permisos Modificados", "Se han detectado cambios en los ajustes del sistema. La app no dispone de los permisos necesarios para trabajar en segundo plano y ha sido desactivada.")
+            // Por el contrario, si la app estaba encendida pero el usuario revocó el permiso por detrás, la apagamos
+            else if (!isIgnoring && prefs.getBoolean("enabled", false)) {
+                turnOffAppWithDialog(
+                    "Permisos Modificados",
+                    "La app ha sido desactivada por falta de permisos."
+                )
             }
         }
     }

@@ -47,7 +47,7 @@
             android:id="@+id/tv_percentage_label"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Porcentaje objetivo: 100%"
+            android:text="Avisar cuando la batería llegue al: 100%"
             android:textSize="16sp"
             android:textColor="?android:attr/textColorPrimary"/>
 
@@ -75,8 +75,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="24dp">
-            <RadioButton android:id="@+id/rb_voice" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Voz hablada nativa" android:textColor="?android:attr/textColorPrimary"/>
-            <RadioButton android:id="@+id/rb_beep" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Beep repetitivo" android:textColor="?android:attr/textColorPrimary"/>
+            <RadioButton android:id="@+id/rb_voice" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Alerta por voz" android:textColor="?android:attr/textColorPrimary"/>
+            <RadioButton android:id="@+id/rb_beep" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Beep" android:textColor="?android:attr/textColorPrimary"/>
             <RadioButton android:id="@+id/rb_silent" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Solo notificación visual" android:textColor="?android:attr/textColorPrimary"/>
         </RadioGroup>
 

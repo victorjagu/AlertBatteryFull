@@ -3,7 +3,7 @@
     <string name="app_name">Alert Battery</string>
     
     <!-- Moldes globales para los avisos por VOZ -->
-    <string name="msg_voice_full">¡Batería cargada! Desconéctame, por favor.</string>
+    <string name="msg_voice_template">¡Batería cargada! Desconéctame, por favor.</string>
     <string name="msg_voice_custom">Batería al %1$d por ciento. Desconéctame, por favor.</string>
     
     <!-- Molde global para la NOTIFICACIÓN VISUAL -->

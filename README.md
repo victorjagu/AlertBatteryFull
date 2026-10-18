@@ -1,6 +1,6 @@
 <h1 align="center">Alert Battery Level</h1>
 <p align="center">
-  <img src="app/src/main/res/mipmap/ic_launcher.png" width="256" alt="AppIcon">
+  <img src="app/src/main/res/mipmap/ic_launcher_foreground.png" width="256" alt="AppIcon">
 </p>
 
 <p align="center">A lightweight, efficient, and customizable application designed for mobile Android systems. Its main purpose is to alert the user when the battery reaches a minimum and/or maximum level so they can connect or disconnect the charger.</p>

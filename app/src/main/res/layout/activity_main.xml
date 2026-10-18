@@ -89,9 +89,10 @@
 
         <!-- Ajuste de Volumen -->
         <TextView
+            android:id="@+id/tv_volume_label"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Volumen del aviso"
+            android:text="Volumen del aviso: 80%"
             android:textSize="16sp"
             android:textColor="?android:attr/textColorPrimary"/>
 

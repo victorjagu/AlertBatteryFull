@@ -91,7 +91,6 @@ class BatteryReceiver : BroadcastReceiver() {
             }
         }
     }
-
     private fun triggerAlert(context: Context, targetPct: Int) {
         val prefs = context.getSharedPreferences("prefs_battery", Context.MODE_PRIVATE)
         val soundType = prefs.getInt("sound_type", 0) // 0 = Voz, 1 = Beep, 2 = Silencioso
@@ -100,49 +99,57 @@ class BatteryReceiver : BroadcastReceiver() {
         val targetVolume = prefs.getInt("volume", 80)
         val useSoundDelay = prefs.getBoolean("sound_delay", false)
 
-        // 1. Mostrar notificación nativa en el móvil al instante (se replica inmediatamente en el Smartwatch)
+        // 1. Mostrar notificación nativa en el móvil al instante (para el Smartwatch o por si el usuario tiene el movil en la mano encendido)
         showNotification(context, targetPct)
 
-        // 2. Si es modo 100% silencioso visual, terminamos aquí para el mínimo consumo energético
-        if (soundType == 2) return
-
-        // 3. Crear el bucle temporal de alertas
+        // Variables de control de hilos independientes
         loopHandler = Handler(Looper.getMainLooper())
+        var isAudioAllowedToPlay = !useSoundDelay // Si no hay retardo, el audio puede sonar desde el segundo cero
+
+        // 2. BUCLE PRINCIPAL DE VIBRACIÓN (Se ejecuta de forma continua cada 10 segundos)
         loopRunnable = object : Runnable {
             override fun run() {
-                // Comprobar el volumen y modo de sonido actual del sistema para respetar el silencio del usuario
-                val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                val ringerMode = am.ringerMode
-
-                if (ringerMode == AudioManager.RINGER_MODE_NORMAL) {
-                    // Ejecutar sonido según la configuración elegida
-                    if (soundType == 0) {
-                        playVoiceAlert(context, targetPct, targetVolume)
-                    } else if (soundType == 1) {
-                        playBeepAlert(targetVolume)
-                    }
-                }
-
-                // Ejecutar infraestructura de vibración si está activa en el sistema
-                if (useVibrate && ringerMode != AudioManager.RINGER_MODE_SILENT) {
+                // CONDICIÓN 1: La vibración depende exclusivamente del ajuste de la app
+                if (useVibrate) {
                     executeVibration(context)
                 }
 
-                // Si el bucle está activado por el usuario, re-programar para dentro de 10 segundos
+                // CONDICIÓN 2: El audio solo suena si ya ha pasado el tiempo de cortesía o no estaba activo
+                if (soundType != 2 && isAudioAllowedToPlay) {
+                    val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    if (am.ringerMode == AudioManager.RINGER_MODE_NORMAL) {
+                        if (soundType == 0) {
+                            playVoiceAlert(context, targetPct, targetVolume)
+                        } else if (soundType == 1) {
+                            playBeepAlert(targetVolume)
+                        }
+                    }
+                }
+
+                // Planificar la siguiente repetición del bucle a los 10 segundos exactos
                 if (useLoop && isAlertActive) {
                     loopHandler?.postDelayed(this, 10000)
                 }
             }
         }
 
-        // CONTROL DEL RETARDO DE 1 MINUTO:
-        // Si el usuario activó la opción, el hilo espera 60000ms antes de hacer sonar el primer aviso.
-        // Si desconecta el cargador antes de este tiempo, ACTION_POWER_DISCONNECTED limpia el handler y no suena.
-        if (useSoundDelay) {
-            loopHandler?.postDelayed(loopRunnable!!, 60000)
-        } else {
-            // Ejecución clásica e inmediata si la opción está apagada
-            loopHandler?.post(loopRunnable!!)
+        // Arrancamos el bucle físico (vibración inmediata)
+        loopHandler?.post(loopRunnable!!)
+
+        // 3. HILO DE DESBLOQUEO DEL AUDIO (Esperará 1 minuto si el retardo está activo)
+        if (soundType != 2 && useSoundDelay) {
+            loopHandler?.postDelayed({
+                if (isAlertActive) {
+                    isAudioAllowedToPlay = true
+                    // Forzamos una reproducción de audio inmediata al cumplir el minuto, 
+                    // ya que el bucle principal podría estar en mitad de una cuenta atrás de 10s
+                    val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    if (am.ringerMode == AudioManager.RINGER_MODE_NORMAL) {
+                        if (soundType == 0) playVoiceAlert(context, targetPct, targetVolume)
+                        else if (soundType == 1) playBeepAlert(targetVolume)
+                    }
+                }
+            }, 60000) // 1 minuto de retardo estricto
         }
     }
 

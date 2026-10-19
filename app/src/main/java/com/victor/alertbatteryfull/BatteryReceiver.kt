@@ -98,14 +98,15 @@ class BatteryReceiver : BroadcastReceiver() {
         val useLoop = prefs.getBoolean("loop", true)
         val useVibrate = prefs.getBoolean("vibrate", true)
         val targetVolume = prefs.getInt("volume", 80)
+        val useSoundDelay = prefs.getBoolean("sound_delay", false)
 
-        // 1. Mostrar notificación nativa en el móvil (que se replica en cualquier Smartwatch: ZeppOS, WearOS, Huawei, etc.)
+        // 1. Mostrar notificación nativa en el móvil al instante (se replica inmediatamente en el Smartwatch)
         showNotification(context, targetPct)
 
         // 2. Si es modo 100% silencioso visual, terminamos aquí para el mínimo consumo energético
         if (soundType == 2) return
 
-        // 3. Crear el bucle temporal de alertas cada 10 segundos
+        // 3. Crear el bucle temporal de alertas
         loopHandler = Handler(Looper.getMainLooper())
         loopRunnable = object : Runnable {
             override fun run() {
@@ -122,7 +123,7 @@ class BatteryReceiver : BroadcastReceiver() {
                     }
                 }
 
-                // Ejecutar vibración si está activa (funciona en modo Normal y modo Vibración del sistema)
+                // Ejecutar infraestructura de vibración si está activa en el sistema
                 if (useVibrate && ringerMode != AudioManager.RINGER_MODE_SILENT) {
                     executeVibration(context)
                 }
@@ -134,8 +135,15 @@ class BatteryReceiver : BroadcastReceiver() {
             }
         }
 
-        // Arrancar el primer aviso de inmediato
-        loopHandler?.post(loopRunnable!!)
+        // CONTROL DEL RETARDO DE 1 MINUTO:
+        // Si el usuario activó la opción, el hilo espera 60000ms antes de hacer sonar el primer aviso.
+        // Si desconecta el cargador antes de este tiempo, ACTION_POWER_DISCONNECTED limpia el handler y no suena.
+        if (useSoundDelay) {
+            loopHandler?.postDelayed(loopRunnable!!, 60000)
+        } else {
+            // Ejecución clásica e inmediata si la opción está apagada
+            loopHandler?.post(loopRunnable!!)
+        }
     }
 
     private fun playVoiceAlert(context: Context, pct: Int, volume: Int) {

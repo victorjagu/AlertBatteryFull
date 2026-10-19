@@ -265,7 +265,7 @@ class MainActivity : Activity() {
             prefs.edit().putBoolean("initial_activation_done", true).apply()
         } else {
             // Si los permisos ya estaban listos de antes, simplemente confirmamos el inicio normal
-            Toast.makeText(currentContext, getString(R.string.toast_app_started_success, getString(R.string.app_name)), Toast.LENGTH_SHORT).show()
+            Toast.makeText(currentContext, getString(R.string.toast_app_started, getString(R.string.app_name)), Toast.LENGTH_SHORT).show()
         }
     }
 

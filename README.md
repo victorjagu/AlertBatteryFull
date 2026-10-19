@@ -1,4 +1,4 @@
-<h1 align="center">Alert Battery Level</h1>
+<h1 align="center">Alert Battery Full</h1>
 <p align="center">
   <img src="app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png" width="256" alt="AppIcon">
 </p>

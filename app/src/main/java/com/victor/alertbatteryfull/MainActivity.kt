@@ -89,14 +89,12 @@ class MainActivity : Activity() {
             override fun onStartTrackingTouch(sb: SeekBar?) {}
             override fun onStopTrackingTouch(sb: SeekBar?) {}
         })
-
-        // INTERRUPTOR PRINCIPAL: Activa la app y arranca el flujo inteligente de permisos
+        
+        // INTERRUPTOR PRINCIPAL: Activa la app y arranca el flujo unificado
         switchEnable.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
-                // Si el usuario enciende el interruptor, validamos primero las Notificaciones
-                checkNotificationPermissionFlow()
+                verificarYActivarPermisos()
             } else {
-                // Si apaga, guardamos el estado y apagamos los receptores de hardware
                 saveEnabledState(false)
                 toggleAppComponents(false)
             }
@@ -225,38 +223,20 @@ class MainActivity : Activity() {
         btnBatterySettings.setOnClickListener { launchSystemSettings() }
     }
 
-    // FLUJO 1: Control estricto de Notificaciones con apagado automático si se deniega
-    private fun checkNotificationPermissionFlow() {
+    // MÉTODO UNIFICADO: Revisa ambos permisos y activa la aplicación
+    private fun verificarYActivarPermisos() {
+        val currentContext = this
+        
+        // 1. COMPROBACIÓN DEL PERMISO DE NOTIFICACIONES (Android 13+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val permission = "android.permission.POST_NOTIFICATIONS"
             if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
-                // Lanzamos el cuadro emergente del sistema operativo en la pantalla
                 requestPermissions(arrayOf(permission), 101)
                 return
             }
         }
-        // Si ya tiene el permission concedido, pasamos al flujo de la batería
-        checkBatteryOptimizationFlow()
-    }
 
-    // CAPTURA DE RESPUESTA DE NOTIFICACIÓN: Se ejecuta cuando el usuario pulsa "Permitir" o "Denegar"
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        if (requestCode == 101) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // PERMISO CONCEDIDO: Pasamos de inmediato a la verificación de la batería
-                checkBatteryOptimizationFlow()
-            } else {
-                // PERMISO DENEGADO: Apagamos el interruptor y mostramos una ventana grande con botón Aceptar
-                turnOffAppWithDialog(
-                    getString(R.string.dialog_permission_required_title),
-                    getString(R.string.dialog_permission_required_text)
-                )
-            }
-        }
-    }
-
-    // FLUJO 2: Abre el cuadro nativo directo de Google para desactivar la optimización de batería
-    private fun checkBatteryOptimizationFlow() {
+        // 2. COMPROBACIÓN DE OPTIMIZACIÓN DE BATERÍA (Android 6+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
                 val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
@@ -265,21 +245,52 @@ class MainActivity : Activity() {
                 try {
                     startActivityForResult(intent, 102)
                 } catch (e: Exception) {
-                    showManualInstructionsDialog() // Ruta de rescate si falla el intent
+                    showManualInstructionsDialog()
                 }
                 return
             }
         }
-        finalizeActivation()
+
+        // 3. PROCESO DE ACTIVACIÓN EXITOSA
+        saveEnabledState(true)
+        switchEnable.isChecked = true
+        toggleAppComponents(true)
+
+        // CONTROL PROFESIONAL DE AVISOS: Solo salta en la primera configuración del usuario
+        val isInitialActivationDone = prefs.getBoolean("initial_activation_done", false)
+        if (!isInitialActivationDone) {
+            Toast.makeText(currentContext, getString(R.string.toast_permissions_granted), Toast.LENGTH_LONG).show()
+            prefs.edit().putBoolean("initial_activation_done", true).apply()
+        }
     }
 
-    // CAPTURA DE BATERÍA NATIVA: Se ejecuta tras responder al cuadro central de Google
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        if (requestCode == 101) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                verificarYActivarPermisos()
+            } else {
+                bloquearSwitchPorFaltaDePermisos()
+            }
+        }
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 102) {
-            // COMBO SECUENCIAL OBLIGATORIO: Haya aceptado o no, le enviamos a los Ajustes de la App
             showManualInstructionsDialog()
         }
+    }
+
+    private fun bloquearSwitchPorFaltaDePermisos() {
+        saveEnabledState(false)
+        switchEnable.isChecked = false
+        toggleAppComponents(false)
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.dialog_permission_required_title))
+            .setMessage(getString(R.string.dialog_permission_required_text))
+            .setCancelable(false)
+            .setPositiveButton(getString(R.string.alertdialog_btn)) { dialog, _ -> dialog.dismiss() }
+            .show()
     }
 
     // FUNCIÓN: Muestra la guía y redirige al usuario de forma directa a los Ajustes de la Aplicación
@@ -308,17 +319,6 @@ class MainActivity : Activity() {
             .setCancelable(false) // Impide que la ventana se cierre si pulsa fuera de ella
             .setPositiveButton(getString(R.string.alertdialog_btn)) { dialog, _ -> dialog.dismiss() }
             .show()
-    }
-
-    // FUNCIÓN: Comprobación final que se ejecuta si el móvil ya tenía los permisos dados de antemano
-    private fun finalizeActivation() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && powerManager.isIgnoringBatteryOptimizations(packageName)) {
-            // Si el procesador confirma que ya estaba en la lista blanca, encendemos el interruptor de golpe
-            saveEnabledState(true)
-            switchEnable.isChecked = true
-            toggleAppComponents(true)
-            Toast.makeText(this, getString(R.string.toast_permissions_granted), Toast.LENGTH_LONG).show()
-        }
     }
 
     private fun saveEnabledState(state: Boolean) {
@@ -371,13 +371,18 @@ class MainActivity : Activity() {
             
             // EL CANDADO REAL: Solo comprobamos el éxito si el usuario estaba editando los ajustes y acaba de volver
             if (isIgnoring && !isAppSavedAsEnabled && isWaitingForSettings) {
-                // Apagamos la bandera para la siguiente vez
                 isWaitingForSettings = false
                 saveEnabledState(true)
                 switchEnable.isChecked = true
                 toggleAppComponents(true)
-                Toast.makeText(this, getString(R.string.toast_app_started_success, getString(R.string.app_name)), Toast.LENGTH_SHORT).show()
+                
+                val isInitialActivationDone = prefs.getBoolean("initial_activation_done", false)
+                if (!isInitialActivationDone) {
+                    Toast.makeText(this, getString(R.string.toast_app_started_success, getString(R.string.app_name)), Toast.LENGTH_SHORT).show()
+                    prefs.edit().putBoolean("initial_activation_done", true).apply()
+                }
             }
+
             // Si la app estaba activa en disco pero el usuario revocó el permiso por detrás en el móvil
             else if (!isIgnoring && isAppSavedAsEnabled) {
                 turnOffAppWithDialog(

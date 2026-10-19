@@ -7,14 +7,14 @@ plugins {
 
 android {
     // Espacio de nombres único que identifica los recursos internos de la app
-    namespace 'com.victor.alertbatterylevel'
+    namespace 'com.victor.alertbatteryfull'
     
     // SDK de Android 14+ usado para compilar el proyecto de forma moderna
     compileSdk 34
 
     defaultConfig {
         // Identificador único de la aplicación en el sistema operativo Android
-        applicationId "com.victor.alertbatterylevel"
+        applicationId "com.victor.alertbatteryfull"
         
         // Versión mínima de Android compatible (Android 14+, API 34)
         minSdk 34

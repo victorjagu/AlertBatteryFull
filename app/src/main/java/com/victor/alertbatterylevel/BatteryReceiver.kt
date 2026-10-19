@@ -1,4 +1,4 @@
-package com.victor.alertbatterylevel
+package com.victor.alertbatteryfull
 
 import android.app.NotificationChannel
 import android.app.NotificationManager

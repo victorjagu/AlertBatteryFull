@@ -12,17 +12,14 @@
     <string name="dialog_permission_required_text">Para poder enviarte los avisos de carga completa, es obligatorio que permitas las notificaciones.</string>
     
     <string name="dialog_reliability_title">Ajustes de Fiabilidad</string>
-    <string name="dialog_reliability_text">"Para garantizar que la alerta suene siempre con la pantalla bloqueada, realiza lo siguiente en el menú que se va a abrir:\n\n" +
-                        "1. Entra en 'Batería' y selecciona 'SIN RESTRICCIONES' (u 'Optimizar consumo' -> Desactivar).\n\n" +
-                        "2. Activa el 'INICIO AUTOMÁTICO' o 'Inicio secundario' si tu móvil dispone de esa opción.\n\n" +
-                        "3. Verifica que los permisos de Notificaciones sigan activos."</string>
+    <string name="dialog_reliability_text">Para garantizar que la alerta suene siempre con la pantalla bloqueada, realiza lo siguiente en el menú que se va a abrir:\n\n1. Entra en \'Batería\' y selecciona \'SIN RESTRICCIONES\' (u \'Optimizar consumo\' -> Desactivar).\n\n2. Activa el \'INICIO AUTOMÁTICO\' o \'Inicio secundario\' si tu móvil dispone de esa opción.\n\n3. Verifica que los permisos de Notificaciones sigan activos.</string>
     <string name="dialog_reliability_btn">Entendido, ir a Ajustes</string>
 
     <string name="dialog_permissions_modified_title">Permisos Modificados</string>
     <string name="dialog_permissions_modified_text">Faltan permisos esenciales para que la aplicación funcione correctamente.</string>
     <string name="alertdialog_btn">Aceptar</string>
     <string name="toast_permissions_granted">¡Permisos otorgados!</string>
-    <string name="toast_app_started_success">¡@string/app_name iniciada con éxito!</string>
+    <string name="toast_app_started_success">¡%1$s iniciada con éxito!</string>
     
     <!-- Canal de la Notificación del Sistema -->
     <string name="channel_notif_name">Alertas de Batería</string>

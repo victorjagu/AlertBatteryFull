@@ -378,7 +378,7 @@ class MainActivity : Activity() {
                 
                 val isInitialActivationDone = prefs.getBoolean("initial_activation_done", false)
                 if (!isInitialActivationDone) {
-                    Toast.makeText(this, getString(R.string.toast_app_started_success, getString(R.string.app_name)), Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.toast_app_started, getString(R.string.app_name)), Toast.LENGTH_SHORT).show()
                     prefs.edit().putBoolean("initial_activation_done", true).apply()
                 }
             }

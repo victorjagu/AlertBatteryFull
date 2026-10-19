@@ -90,6 +90,19 @@
             android:textColor="?android:attr/textColorPrimary"
             android:layout_marginBottom="24dp"/>
 
+        <!-- Interruptor de retardo de sonido (sound_delay) -->
+        <Switch
+            android:id="@+id/switch_sound_delay"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="12dp"
+            android:text="@string/ui_sound_delay"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:thumbTint="@color/selector_switch_thumb"
+            android:trackTint="@color/selector_switch_track" />
+                
         <!-- Vibración -->
         <Switch
             android:id="@+id/switch_vibrate"

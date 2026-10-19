@@ -8,7 +8,7 @@
 ## 🚀 Key Features
 
 * **Master Switch:** Easily turn the entire monitoring service ON or OFF with a single tap from the dynamic interface header.
-* **Full Battery Alerte:** Triggers when reaching your custom percentage (e.g., 80% or 100%) **only while the device is charging**. The notification automatically dismisses itself when unplugging the charger.
+* **Full Battery Alert:** Triggers when reaching your custom percentage (e.g., 80% or 100%) **only while the device is charging**. The notification automatically dismisses itself when unplugging the charger.
 * **Low Battery Alert:** Triggers when dropping to your custom percentage **only while the device is discharging**. The notification automatically clears as soon as you plug in the charging cable.
 * **Privacy & Local Persistence:** All user settings are saved 100% locally using secure internal device storage (`SharedPreferences`).
 

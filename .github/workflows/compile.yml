@@ -33,7 +33,7 @@ on:
           - RELEASE
 
 env:
-  NOMBRE_PROGRAMA: "AlertBatteryLevel"
+  NOMBRE_PROGRAMA: "AlertBatteryFull"
   
 jobs:
   build:

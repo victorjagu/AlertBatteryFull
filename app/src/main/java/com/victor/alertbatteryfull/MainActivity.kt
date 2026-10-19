@@ -376,7 +376,7 @@ class MainActivity : Activity() {
                 saveEnabledState(true)
                 switchEnable.isChecked = true
                 toggleAppComponents(true)
-                Toast.makeText(this, getString(R.string.toast_app_started_success), Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.toast_app_started_success, getString(R.string.app_name)), Toast.LENGTH_SHORT).show()
             }
             // Si la app estaba activa en disco pero el usuario revocó el permiso por detrás en el móvil
             else if (!isIgnoring && isAppSavedAsEnabled) {

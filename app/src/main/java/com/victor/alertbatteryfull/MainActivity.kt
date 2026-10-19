@@ -97,6 +97,7 @@ class MainActivity : Activity() {
             } else {
                 saveEnabledState(false)
                 toggleAppComponents(false)
+                Toast.makeText(this, getString(R.string.toast_app_disabled, getString(R.string.app_name)), Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -256,11 +257,15 @@ class MainActivity : Activity() {
         switchEnable.isChecked = true
         toggleAppComponents(true)
 
-        // CONTROL PROFESIONAL DE AVISOS: Solo salta en la primera configuración del usuario
+        // CONTROL INTELIGENTE DE TOASTS:
         val isInitialActivationDone = prefs.getBoolean("initial_activation_done", false)
         if (!isInitialActivationDone) {
-            Toast.makeText(currentContext, getString(R.string.toast_permissions_granted), Toast.LENGTH_LONG).show()
+            // Si es la primerísima vez que el usuario concede todo, le felicitamos por los permisos
+            Toast.makeText(currentContext, getString(R.string.toast_permissions_granted), Toast.LENGTH_SHORT).show()
             prefs.edit().putBoolean("initial_activation_done", true).apply()
+        } else {
+            // Si los permisos ya estaban listos de antes, simplemente confirmamos el inicio normal
+            Toast.makeText(currentContext, getString(R.string.toast_app_started_success, getString(R.string.app_name)), Toast.LENGTH_SHORT).show()
         }
     }
 

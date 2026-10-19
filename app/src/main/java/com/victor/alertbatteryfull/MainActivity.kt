@@ -41,6 +41,7 @@ class MainActivity : Activity() {
     private lateinit var tvVolumeLabel: TextView
     private lateinit var rgSoundType: RadioGroup
     private lateinit var btnBatterySettings: Button
+    private lateinit var switchSoundDelay: Switch
     private var tts: android.speech.tts.TextToSpeech? = null
     
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,6 +66,12 @@ class MainActivity : Activity() {
         tvVolumeLabel = findViewById(R.id.tv_volume_label)
         rgSoundType = findViewById(R.id.rg_sound_type)
         btnBatterySettings = findViewById(R.id.btn_battery_settings)
+        switchSoundDelay = findViewById(R.id.switch_sound_delay)
+
+        // INTERRUPTOR DE RETARDO DE SONIDO
+        switchSoundDelay.setOnCheckedChangeListener { _, isChecked -> 
+            prefs.edit().putBoolean("sound_delay", isChecked).apply() 
+        }
 
         // MEMORIA: Leemos el almacenamiento para restaurar el estado anterior de la app
         loadPreferences()
@@ -322,7 +329,8 @@ class MainActivity : Activity() {
         switchEnable.isChecked = prefs.getBoolean("enabled", false)
         switchLoop.isChecked = prefs.getBoolean("loop", true)
         switchVibrate.isChecked = prefs.getBoolean("vibrate", true)
-        
+        switchSoundDelay.isChecked = prefs.getBoolean("sound_delay", false)
+
         val pct = prefs.getInt("target_pct", 100)
         seekPercentage.progress = pct
         tvPercentageLabel.text = getString(R.string.ui_battery_target, pct)

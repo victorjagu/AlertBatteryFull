@@ -137,15 +137,8 @@
             android:id="@+id/btn_battery_settings"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Configurar Fiabilidad (Sin restricciones)"
+            android:text="Configurar Fiabilidad (permisos)"
             android:layout_marginBottom="16dp"/>
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Nota: Para garantizar que el aviso suene tras reiniciar o en reposo profundo, pulsa el botón de arriba, busca esta app y selecciona 'Sin restricciones' o activa 'Inicio automático'."
-            android:textSize="12sp"
-            android:textColor="?android:attr/textColorSecondary"/>
 
     </LinearLayout>
 </ScrollView>

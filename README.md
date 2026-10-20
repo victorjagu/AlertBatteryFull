@@ -3,27 +3,25 @@
   <img src="app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png" width="256" alt="AppIcon">
 </p>
 
-<p align="center">A lightweight, efficient, and customizable application designed for mobile Android systems. Its main purpose is to alert the user when the battery reaches a minimum and/or maximum level so they can connect or disconnect the charger.</p>
+<p align="center">A lightweight, efficient, and customizable application designed for mobile Android systems. Its main purpose is to alert the user when the battery is charged. Full battery level can be determine by the user.</p>
 
 ## 🚀 Key Features
 
 * **Master Switch:** Easily turn the entire monitoring service ON or OFF with a single tap from the dynamic interface header.
 * **Full Battery Alert:** Triggers when reaching your custom percentage (e.g., 80% or 100%) **only while the device is charging**. The notification automatically dismisses itself when unplugging the charger.
-* **Low Battery Alert:** Triggers when dropping to your custom percentage **only while the device is discharging**. The notification automatically clears as soon as you plug in the charging cable.
 * **Privacy & Local Persistence:** All user settings are saved 100% locally using secure internal device storage (`SharedPreferences`).
 
 ## 🛠 Advanced Customization Options
 
-Each alert type (high and low) features independent multimedia channels that can be toggled at will:
+Each alert type features independent multimedia channels that can be toggled at will:
 * **Visual Message:** Customizable notifications that travel natively to your **smartwatch** via the Android system.
 * **Audio Beep:** Sound alerts with independent volume slider control.
-* **Voice Text-to-Speech (TTS):** Customizable voice alerts ("*Battery fully charged. Unplug me, please*") with independent volume control.
+* **Voice Text-to-Speech (TTS):** Customizable voice alerts with independent volume control.
 * **Haptic Vibration:** Enabled or disabled according to your preference.
 
 ## 🧠 Intelligent Filters & Conditions
 
 * **Respect System State:** Option to keep the app muted on Silent/Vibrate modes.
-* **Wi-Fi Network Filter (SSID):** Restricts alerts to permitted comma-separated Wi-Fi networks (e.g., home Wi-Fi).
 * **Background Resilience:** Includes battery optimization exclusion and `BootReceiver` for automatic restart after reboot.
 
 ## 📋 Requirements
@@ -44,9 +42,9 @@ To install the generated APK directly from your computer to your phone via cable
    ```
 3. **Install the APK:** Navigate to the folder where the APK was downloaded and execute:
    ```bash
-   adb install AlertBatteryLevel.apk
+   adb install AlertBatteryFull.apk
    ```
-   *(Note: If you are updating an existing installation, use `adb install -r AlertBatteryLevel.apk` to reinstall and keep your saved settings).*
+   *(Note: If you are updating an existing installation, use `adb install -r AlertBatteryFull.apk` to reinstall and keep your saved settings).*
 
 ## 👤 Personal Project Policy
 

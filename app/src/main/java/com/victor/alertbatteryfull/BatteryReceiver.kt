@@ -38,6 +38,13 @@ class BatteryReceiver : BroadcastReceiver() {
 
         val action = intent.action
 
+        // CASO NUEVO: El usuario borró la notificación desde el móvil o Smartwatch
+        if (action == "ACTION_CANCEL_ALERTS_MANUAL") {
+            // Apagamos los hilos de audio y el TTS para que no suene nada
+            stopAlerts() 
+            return
+        }
+
         // CASO 1: SE DESCONECTA EL CARGADOR -> Limpieza absoluta inmediata de RAM y alertas
         if (action == Intent.ACTION_POWER_DISCONNECTED) {
             stopAlerts()
@@ -91,6 +98,7 @@ class BatteryReceiver : BroadcastReceiver() {
             }
         }
     }
+    
     private fun triggerAlert(context: Context, targetPct: Int) {
         val prefs = context.getSharedPreferences("prefs_battery", Context.MODE_PRIVATE)
         val soundType = prefs.getInt("sound_type", 0) // 0 = Voz, 1 = Beep, 2 = Silencioso
@@ -212,6 +220,15 @@ class BatteryReceiver : BroadcastReceiver() {
         val title = context.getString(R.string.msg_notif_title)
         val text = context.getString(R.string.msg_notif_text, pct)
 
+        // Creamos la señal de borrado que se activará al descartar la notificación
+        val deleteIntent = Intent(context, BatteryReceiver::class.java).apply {
+            action = "ACTION_CANCEL_ALERTS_MANUAL"
+        }
+        val deletePendingIntent = android.app.PendingIntent.getBroadcast(
+            context, 0, deleteIntent, 
+            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(context.resources.getIdentifier("ic_launcher", "mipmap", context.packageName))
             .setContentTitle(title)
@@ -219,6 +236,7 @@ class BatteryReceiver : BroadcastReceiver() {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(true)
+            .setDeleteIntent(deletePendingIntent) 
 
         nm.notify(NOTIFICATION_ID, builder.build())
     }

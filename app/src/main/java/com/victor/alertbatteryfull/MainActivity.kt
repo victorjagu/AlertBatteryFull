@@ -199,7 +199,7 @@ class MainActivity : Activity() {
                 2 -> { // CASO SOLO MENSAJE: Muestra en la ventana el texto idéntico que se enviará como notificación
                     try {
                         // 1. Muestra la notificación nativa real de forma inmediata
-                        BatteryReceiver().showNotification(this, currentTargetPct)
+                        NotificationHelper.showNotification(this, currentTargetPct)
                         
                         // 2. Temporizador para cancelarla automáticamente a los 7 segundos exactos
                         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({

@@ -108,7 +108,7 @@ class BatteryReceiver : BroadcastReceiver() {
         val useSoundDelay = prefs.getBoolean("sound_delay", false)
 
         // 1. Mostrar notificación nativa en el móvil al instante (para el Smartwatch o por si el usuario tiene el movil en la mano encendido)
-        showNotification(context, targetPct)
+        NotificationHelper.showNotification(context, targetPct)
 
         // Variables de control de hilos independientes
         loopHandler = Handler(Looper.getMainLooper())
@@ -203,42 +203,6 @@ class BatteryReceiver : BroadcastReceiver() {
             val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
             vibrator?.vibrate(400)
         }
-    }
-
-    private fun showNotification(context: Context, pct: Int) {
-        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(CHANNEL_ID, context.getString(R.string.channel_notif_name), NotificationManager.IMPORTANCE_HIGH).apply {
-                description = context.getString(R.string.channel_notif_description)
-                enableLights(true)
-            }
-            nm.createNotificationChannel(channel)
-        }
-
-        // Sincronizamos la notificación visual con el molde único de strings.xml
-        val title = context.getString(R.string.msg_notif_title)
-        val text = context.getString(R.string.msg_notif_text, pct)
-
-        // Creamos la señal de borrado que se activará al descartar la notificación
-        val deleteIntent = Intent(context, BatteryReceiver::class.java).apply {
-            action = "ACTION_CANCEL_ALERTS_MANUAL"
-        }
-        val deletePendingIntent = android.app.PendingIntent.getBroadcast(
-            context, 0, deleteIntent, 
-            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
-        )
-        
-        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(context.resources.getIdentifier("ic_launcher", "mipmap", context.packageName))
-            .setContentTitle(title)
-            .setContentText(text)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setAutoCancel(true)
-            .setDeleteIntent(deletePendingIntent) 
-
-        nm.notify(NOTIFICATION_ID, builder.build())
     }
 
     private fun stopAlerts() {

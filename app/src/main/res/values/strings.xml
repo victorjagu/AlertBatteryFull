@@ -19,7 +19,7 @@
     <string name="dialog_permissions_modified_text">Faltan permisos esenciales para que la aplicación funcione correctamente.</string>
     <string name="alertdialog_btn">Aceptar</string>
     <string name="toast_permissions_granted">¡Permisos otorgados!</string>
-    <string name="toast_app_started">¡%1$s iniciada con éxito!</string>
+    <string name="toast_app_started">¡%1$s iniciada!</string>
     <string name="toast_app_disabled">¡%1$s desactivada!</string>
     
     <!-- Canal de la Notificación del Sistema -->

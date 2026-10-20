@@ -220,8 +220,9 @@ class MainActivity : Activity() {
             }
         }
 
-        // BOTÓN MANUAL DE AUXILIO: Mantiene la ruta tradicional si el usuario quiere revisar ajustes
-        btnBatterySettings.setOnClickListener { launchSystemSettings() }
+        // BOTÓN MANUAL DE AUXILIO: Lanza primero el diálogo explicativo con las instrucciones
+        btnBatterySettings.setOnClickListener { showManualInstructionsDialog() }
+
     }
 
     // MÉTODO UNIFICADO: Revisa ambos permisos y activa la aplicación

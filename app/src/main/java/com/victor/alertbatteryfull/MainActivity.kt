@@ -198,22 +198,13 @@ class MainActivity : Activity() {
                 
                 2 -> { // CASO SOLO MENSAJE: Muestra en la ventana el texto idéntico que se enviará como notificación
                     try {
-                        // Extraemos de forma exacta el formato visual de la alerta
-                        val realVisualMessage = getString(R.string.msg_notif_text, currentTargetPct)
+                        // 1. Muestra la notificación nativa real de forma inmediata
+                        BatteryReceiver().showNotification(this, currentTargetPct)
                         
-                        val autoCloseDialog = AlertDialog.Builder(this)
-                            .setTitle(getString(R.string.msg_notif_title))
-                            .setMessage(realVisualMessage)
-                            .setCancelable(false)
-                            .create()
-                            
-                        autoCloseDialog.show()
-
-                        // Temporizador asíncrono que destruye la ventana a los 7 segundos exactos
+                        // 2. Temporizador para cancelarla automáticamente a los 7 segundos exactos
                         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                            if (autoCloseDialog.isShowing) {
-                                autoCloseDialog.dismiss()
-                            }
+                            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                            nm.cancel(9911) // Usamos el ID 9911 fijado en el BatteryReceiver
                         }, 7000)
                     } catch (e: Exception) {}
                 }

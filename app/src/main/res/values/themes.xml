@@ -1,7 +1,15 @@
 <resources>
-    <style name="Theme.AlertBattery" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">#FFFFFF</item>
-        <item name="android:statusBarColor">#FFFFFF</item>
+    <!-- Usamos DeviceDefault para que Android detecte automáticamente el modo Claro/Oscuro del sistema -->
+    <style name="Theme.AlertBattery" parent="android:Theme.DeviceDefault.NoActionBar">
+        <!-- Fondo: Verde menta suave en modo claro / Negro puro en modo oscuro -->
+        <item name="android:windowBackground">@color/background_dinamico</item>
+        
+        <!-- Barra de estado: Se adapta al fondo -->
+        <item name="android:statusBarColor">@color/background_dinamico</item>
         <item name="android:windowLightStatusBar">true</item>
     </style>
+
+    <!-- Definición del color dinámico sin necesidad de crear archivos separados -->
+    <color name="background_dinamico">#E8F5E9</color> <!-- Verde claro por defecto -->
+    <color name="background_dinamico" baseNight="true">#000000</color> <!-- Negro OLED si se activa el modo noche -->
 </resources>

@@ -51,7 +51,7 @@ class MainActivity : Activity() {
         setContentView(R.layout.activity_main)
         
         // AUDIO DE NOTIFICACIONES: Sincroniza el slider físico del móvil con el canal de notificaciones para máxima suavidad
-        volumeControlStream = AudioManager.STREAM_NOTIFICATION
+        volumeControlStream = android.media.AudioManager.STREAM_NOTIFICATION
         
         // ENLACES: Conectamos las variables de Kotlin con los ID del plano visual XML
         switchEnable = findViewById(R.id.switch_enable)

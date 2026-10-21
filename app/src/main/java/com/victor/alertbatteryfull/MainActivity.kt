@@ -6,8 +6,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.media.AudioManager
-import android.media.ToneGenerator
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -148,33 +146,17 @@ class MainActivity : Activity() {
                 // El usuario ha soltado la barra: calculamos el volumen final real
                 val currentProgress = sb?.progress ?: 80
                 try {
-                    val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                    // 1. Consultamos el volumen multimedia actual del teléfono
-                    val originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
-                    
-                    // LLAVE DE PASO: Si el móvil está con la música a cero, respetamos el silencio
-                    if (originalVolume == 0) return
-
-                    // 2. Subimos temporalmente el volumen del sistema al nivel de nuestra barra
-                    // Calculamos la equivalencia según el máximo que permita el hardware del teléfono
-                    val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                    val targetSystemVol = (currentProgress * maxMusicVol) / 100
-                    am.setStreamVolume(AudioManager.STREAM_MUSIC, targetSystemVol, 0)
-
-                    // 3. Emitimos el pitido por el canal multimedia (STREAM_MUSIC) al máximo relativo (100)
-                    // ya que el volumen real lo acabamos de fijar en el sistema
-                    val toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
-                    toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
-                    
-                    // 4. Tras los 150ms del pitido, liberamos el hardware y RESTAURAMOS el volumen original del móvil
-                    sb?.postDelayed({
-                        try {
-                            toneGenerator.release()
-                            am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
-                        } catch (e: Exception) {}
-                    }, 200)
+                    // Creamos la orden directa para encender nuestro servicio acústico especializado
+                    val serviceIntent = Intent(this@MainActivity, AudioService::class.java).apply {
+                        putExtra("sound_type", 1)               // Tipo 1: Reproducir el Beep físico de hardware
+                        putExtra("volume", currentProgress)   // Le pasamos el volumen seleccionado por el usuario
+                        putExtra("target_pct", seekPercentage.progress) // Porcentaje actual de la interfaz
+                        putExtra("is_test", true)           // Marcamos que es solo una prueba manual desde la pantalla
+                    }
+                    // Arrancamos el servicio ligero de forma nativa
+                    startService(serviceIntent)
                 } catch (e: Exception) {
-                    // Salvaguarda por si el hardware del chip de audio está ocupado
+                    // Salvaguarda por si el sistema operativo está ocupado
                 }
             }
         })
@@ -194,41 +176,27 @@ class MainActivity : Activity() {
 
             // 2. Ejecutamos la prueba con los mensajes reales de la aplicación
             when (type) {
-                0 -> { // CASO DE ALERTA POR VOZ: Delega la prueba al receptor para evitar fugas de RAM y cortes al girar
+                0 -> { // CASO DE ALERTA POR VOZ: Invoca al servicio especializado para evitar cortes y fugas de RAM
                     try {
-                        val intentPrueba = Intent(this, BatteryReceiver::class.java).apply {
-                            action = "ACTION_TEST_VOICE_ALERT"
-                            putExtra("target_pct", currentTargetPct)
+                        val serviceIntent = Intent(this, AudioService::class.java).apply {
+                            putExtra("sound_type", 0)       // Tipo 0: Reproducir Alerta por Voz
+                            putExtra("volume", currentVolume) // Volumen seleccionado en la barra
+                            putExtra("target_pct", currentTargetPct) // Porcentaje seleccionado en la barra
+                            putExtra("is_test", true)       // Marcamos que es una prueba manual
                         }
-                        sendBroadcast(intentPrueba)
+                        startService(serviceIntent)
                     } catch (e: Exception) {}
                 }
                 
-                1 -> { // CASO DE BEEP: Sonido físico limpio al volumen de la barra
+                1 -> { // CASO DE BEEP: Invoca al servicio para reproducir el pitido unificado de hardware
                     try {
-                        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                        // 1. Guardamos el volumen multimedia actual del teléfono
-                        val originalVolume = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
-                        
-                        // LLAVE DE PASO: Si el móvil tiene la música a cero, respetamos el silencio
-                        if (originalVolume > 0) {
-                            // 2. Subimos el volumen del sistema al nivel que marca nuestra barra
-                            val maxMusicVol = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
-                            val targetSystemVol = (currentVolume * maxMusicVol) / 100
-                            am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, targetSystemVol, 0)
-
-                            // 3. Emitimos el pitido por el canal multimedia
-                            val toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
-                            toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
-                            
-                            // 4. Liberamos el hardware y devolvemos el móvil a su volumen original
-                            seekVolume.postDelayed({
-                                try {
-                                    toneGenerator.release()
-                                    am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, originalVolume, 0)
-                                } catch (e: Exception) {}
-                            }, 200)
+                        val serviceIntent = Intent(this, AudioService::class.java).apply {
+                            putExtra("sound_type", 1)       // Tipo 1: Reproducir el Beep físico
+                            putExtra("volume", currentVolume) // Volumen seleccionado en la barra
+                            putExtra("target_pct", currentTargetPct) // Porcentaje seleccionado en la barra
+                            putExtra("is_test", true)       // Marcamos que es una prueba manual
                         }
+                        startService(serviceIntent)
                     } catch (e: Exception) {}
                 }
                 

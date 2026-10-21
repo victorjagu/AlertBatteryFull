@@ -42,7 +42,6 @@ class MainActivity : Activity() {
     private lateinit var rgSoundType: RadioGroup
     private lateinit var btnBatterySettings: Button
     private lateinit var switchSoundDelay: Switch
-    private var tts: android.speech.tts.TextToSpeech? = null
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -75,9 +74,6 @@ class MainActivity : Activity() {
 
         // MEMORIA: Leemos el almacenamiento para restaurar el estado anterior de la app
         loadPreferences()
-
-        // Arrancamos silenciosamente el sintetizador de voz para que funcione en las pruebas del usuario
-        tts = android.speech.tts.TextToSpeech(this) { status -> }
 
         // CONTROL DE PORCENTAJE OBJETIVO
         seekPercentage.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -172,19 +168,13 @@ class MainActivity : Activity() {
 
             // 2. Ejecutamos la prueba con los mensajes reales de la aplicación
             when (type) {
-                0 -> { // CASO DE ALERTA POR VOZ: Reproduce la frase exacta que dirá el vigilante en segundo plano
+                0 -> { // CASO DE ALERTA POR VOZ: Delega la prueba al receptor para evitar fugas de RAM y cortes al girar
                     try {
-                        // Construimos de forma idéntica la frase real usando el porcentaje seleccionado
-                        val realVoiceMessage = if (currentTargetPct == 100) {
-                            getString(R.string.msg_voice_full)
-                        } else {
-                            getString(R.string.msg_voice_custom, currentTargetPct)
+                        val intentPrueba = Intent(this, BatteryReceiver::class.java).apply {
+                            action = "ACTION_TEST_VOICE_ALERT"
+                            putExtra("target_pct", currentTargetPct)
                         }
-                        
-                        val params = Bundle().apply { 
-                            putInt(android.speech.tts.TextToSpeech.Engine.KEY_PARAM_STREAM, android.media.AudioManager.STREAM_NOTIFICATION) 
-                        }
-                        tts?.speak(realVoiceMessage, android.speech.tts.TextToSpeech.QUEUE_FLUSH, params, "PruebaTTS")
+                        sendBroadcast(intentPrueba)
                     } catch (e: Exception) {}
                 }
                 

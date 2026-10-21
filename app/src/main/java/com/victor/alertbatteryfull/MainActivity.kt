@@ -205,7 +205,7 @@ class MainActivity : Activity() {
                 
                 1 -> { // CASO DE BEEP: Sonido físico limpio al volumen de la barra
                     try {
-                        val am = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+                        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
                         // 1. Guardamos el volumen multimedia actual del teléfono
                         val originalVolume = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
                         

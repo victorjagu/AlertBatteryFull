@@ -217,8 +217,8 @@ class MainActivity : Activity() {
                             am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, targetSystemVol, 0)
 
                             // 3. Emitimos el pitido por el canal multimedia
-                            val toneGenerator = android.media.ToneGenerator(android.media.AudioManager.STREAM_MUSIC, 100)
-                            toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 150)
+                            val toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
+                            toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
                             
                             // 4. Liberamos el hardware y devolvemos el móvil a su volumen original
                             seekVolume.postDelayed({

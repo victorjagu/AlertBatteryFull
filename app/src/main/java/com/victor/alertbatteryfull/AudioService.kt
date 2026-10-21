@@ -15,14 +15,29 @@ import java.util.Locale
 
 class AudioService : Service() {
 
-    companion object {
-        private var tts: TextToSpeech? = null
-    }
+    private var tts: TextToSpeech? = null
+    private var isTtsReady = false
+    private var pendingIntent: Intent? = null
 
-    // Este método es obligatorio por ley en los servicios de Android, 
-    // pero como el nuestro es independiente y no se "ata" a ninguna pantalla, lo devolvemos nulo de forma segura.
-    override fun onBind(intent: Intent?): IBinder? {
-        return null
+    override fun onCreate() {
+        super.onCreate()
+        // BLINDAJE ANDROID 14+: Inicializamos el motor TextToSpeech nativo de Google utilizando el contexto global de la aplicación
+        // Lo hacemos en el onCreate del servicio para que el motor esté listo antes de recibir las órdenes acústicas
+        tts = TextToSpeech(applicationContext) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                isTtsReady = true
+                // Si llegó una orden de voz mientras el motor se estaba encendiendo, la procesamos inmediatamente ahora
+                pendingIntent?.let { intent ->
+                    val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    val originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+                    val targetVolume = intent.getIntExtra("volume", 80)
+                    val targetPct = intent.getIntExtra("target_pct", 100)
+                    val isTest = intent.getBooleanExtra("is_test", false)
+                    executeVoiceAlert(am, originalVolume, targetVolume, targetPct, isTest)
+                    pendingIntent = null
+                }
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -39,7 +54,7 @@ class AudioService : Service() {
             // 4. Consultamos el volumen multimedia (música) actual del dispositivo del usuario
             val originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
 
-            // Si el usuario tiene el volumen multimedia del móvil a cero (modo noche),
+            // LLAVE DE PASO INTELIGENTE: Si el usuario tiene el volumen multimedia del móvil a cero (modo noche),
             // respetamos el silencio absoluto, no reproducimos acústica y detenemos el servicio de inmediato.
             if (originalVolume == 0) {
                 stopSelf() // El servicio se auto-destruye y se borra de la RAM al instante
@@ -48,7 +63,15 @@ class AudioService : Service() {
 
             // 5. Si el volumen del móvil es mayor que cero, ejecutamos la acción correspondiente
             when (soundType) {
-                0 -> playVoiceAlert(am, originalVolume, targetVolume, targetPct, isTest) // Lanzar la Alerta por Voz
+                0 -> {
+                    // Si el motor de Google ya está listo en el sistema, habla inmediatamente
+                    if (isTtsReady) {
+                        executeVoiceAlert(am, originalVolume, targetVolume, targetPct, isTest)
+                    } else {
+                        // Si el motor aún se está conectando de fondo, guardamos este intento para lanzarlo al revivir
+                        pendingIntent = intent
+                    }
+                }
                 1 -> playBeepAlert(am, originalVolume, targetVolume)                    // Lanzar el Pitido (Beep)
                 else -> stopSelf() // Por seguridad, si llega un tipo desconocido, nos apagamos
             }
@@ -57,8 +80,73 @@ class AudioService : Service() {
             stopSelf()
         }
 
-        // Le indicamos al sistema operativo que si el servicio es destruido por falta de RAM, no intente revivirlo solo
-        return START_NOT_STICKY
+        // ARQUITECTURA PROFESIONAL: Retornamos STICKY para que Android 14+ mantenga el proceso prioritario mientras la app habla de fondo
+        return START_STICKY
+    }
+
+    private fun executeVoiceAlert(am: AudioManager, originalVolume: Int, targetVolume: Int, pct: Int, isTest: Boolean) {
+        // 1. Construimos de forma dinámica la frase exacta según el porcentaje objetivo configurado
+        val message = if (pct == 100) {
+            getString(R.string.msg_voice_full)
+        } else {
+            getString(R.string.msg_voice_custom, pct)
+        }
+
+        tts?.let { t ->
+            // 3. Establecemos el idioma por defecto configurado en el teléfono del usuario
+            t.language = Locale.getDefault()
+
+            // 4. Subimos temporalmente el volumen del sistema al nivel exacto que marca nuestra barra
+            val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            val targetSystemVol = (targetVolume * maxMusicVol) / 100
+            am.setStreamVolume(AudioManager.STREAM_MUSIC, targetSystemVol, 0)
+
+            // 5. BLINDAJE ANDROID 14+: Forzamos al motor a usar el canal multimedia con categoría de ALERTA
+            // Esto permite el "ducking" (bajar el volumen de Spotify/música de fondo de forma nativa)
+            val audioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+            t.setAudioAttributes(audioAttributes)
+
+            // 6. ESCUCHADOR PROFESIONAL: El motor nos avisará en el milisegundo exacto en que termine la frase
+            t.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) {}
+
+                override fun onDone(utteranceId: String?) {
+                    // Usamos un Handler atado al hilo principal para manipular los componentes de audio de forma segura
+                    Handler(Looper.getMainLooper()).post {
+                        try {
+                            // RESTAURAMOS el volumen original que tenía el móvil del usuario inmediatamente
+                            am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
+                            
+                            // Si es una prueba manual de la pantalla, detenemos el audio en este instante
+                            if (isTest) {
+                                tts?.stop()
+                            }
+                        } catch (e: Exception) {}
+                        
+                        // El trabajo acústico de la voz ha terminado: destruimos el servicio por completo de la memoria RAM
+                        stopSelf()
+                    }
+                }
+
+                override fun onError(utteranceId: String?) {
+                    Handler(Looper.getMainLooper()).post {
+                        try { am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0) } catch (e: Exception) {}
+                        stopSelf()
+                    }
+                }
+            })
+
+            // 7. Empaquetamos el ID de la alerta exigido por Android 14+ para sincronizar el escuchador
+            val params = Bundle().apply {
+                putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "BatteryAlertID")
+            }
+
+            // 8. Ordenamos al sintetizador de voz que reproduzca el mensaje
+            t.speak(message, TextToSpeech.QUEUE_FLUSH, params, "BatteryAlertID")
+        }
     }
 
     private fun playBeepAlert(am: AudioManager, originalVolume: Int, targetVolume: Int) {
@@ -98,78 +186,19 @@ class AudioService : Service() {
         }
     }
 
-    private fun playVoiceAlert(am: AudioManager, originalVolume: Int, targetVolume: Int, pct: Int, isTest: Boolean) {
-        // 1. Construimos de forma dinámica la frase exacta según el porcentaje objetivo configurado
-        val message = if (pct == 100) {
-            getString(R.string.msg_voice_full)
-        } else {
-            getString(R.string.msg_voice_custom, pct)
-        }
+    override fun onDestroy() {
+        // LIMPIEZA ABSOLUTA DE RAM: Al morir el servicio de forma definitiva, desconectamos el motor de voz por completo del sistema operativo
+        try {
+            tts?.stop()
+            tts?.shutdown()
+            tts = null
+        } catch (e: Exception) {}
+        super.onDestroy()
+    }
 
-        // 2. Inicializamos el motor TextToSpeech nativo de Google utilizando el contexto seguro del servicio
-        tts = TextToSpeech(applicationContext) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                tts?.let { t ->
-                    // 3. Establecemos el idioma por defecto configurado en el teléfono del usuario
-                    t.language = Locale.getDefault()
-
-                    // 4. Subimos temporalmente el volumen del sistema al nivel exacto que marca nuestra barra
-                    val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                    val targetSystemVol = (targetVolume * maxMusicVol) / 100
-                    am.setStreamVolume(AudioManager.STREAM_MUSIC, targetSystemVol, 0)
-
-                    // 5. BLINDAJE ANDROID 14+: Forzamos al motor a usar el canal multimedia con categoría de ALERTA
-                    // Esto activa el efecto "ducking" (atenúa un instante la música de Spotify sin pausarla)
-                    val audioAttributes = AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                        .build()
-                    t.setAudioAttributes(audioAttributes)
-
-                    // 6. ESCUCHADOR PROFESIONAL: El motor nos avisará en el milisegundo exacto en que termine la frase
-                    t.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
-                        override fun onStart(utteranceId: String?) {}
-
-                        override fun onDone(utteranceId: String?) {
-                            // Usamos un Handler atado al hilo principal para manipular los componentes de audio de forma segura
-                            Handler(Looper.getMainLooper()).post {
-                                try {
-                                    // RESTAURAMOS el volumen original que tenía el móvil del usuario inmediatamente
-                                    am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
-                                    
-                                    // Si es una prueba manual de la pantalla, liberamos el motor de la RAM de inmediato
-                                    if (isTest) {
-                                        tts?.stop()
-                                        tts?.shutdown()
-                                        tts = null
-                                    }
-                                } catch (e: Exception) {}
-                                
-                                // El trabajo acústico de la voz ha terminado: destruimos el servicio por completo
-                                stopSelf()
-                            }
-                        }
-
-                        override fun onError(utteranceId: String?) {
-                            Handler(Looper.getMainLooper()).post {
-                                try { am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0) } catch (e: Exception) {}
-                                stopSelf()
-                            }
-                        }
-                    })
-
-                    // 7. Empaquetamos el ID de la alerta exigido por Android 14+ para sincronizar el escuchador
-                    val params = Bundle().apply {
-                        putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "BatteryAlertID")
-                    }
-
-                    // 8. Ordenamos al sintetizador de voz que reproduzca el mensaje
-                    t.speak(message, TextToSpeech.QUEUE_FLUSH, params, "BatteryAlertID")
-                }
-            } else {
-                // Si el motor de Google falla al inicializarse, nos aseguramos de no dejar el servicio colgado
-                stopSelf()
-            }
-        }
+    // Este método es obligatorio por ley en los servicios de Android, 
+    // pero como el nuestro es independiente y no se "ata" a ninguna pantalla, lo devolvemos nulo de forma segura.
+    override fun onBind(intent: Intent?): IBinder? {
+        return null
     }
 }

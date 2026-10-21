@@ -1,7 +1,12 @@
 <resources>
     <style name="Theme.AlertBattery" parent="android:Theme.Material.NoActionBar">
+        <!-- Fondo de la app y barra de estado en negro puro -->
         <item name="android:windowBackground">#000000</item>
         <item name="android:statusBarColor">#000000</item>
+        <!-- Cambia la barra de navegación inferior a negro puro -->
+        <item name="android:navigationBarColor">#000000</item>
+        <!-- 'false' para que los iconos de arriba y abajo se vuelvan blancos -->
         <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
     </style>
 </resources>

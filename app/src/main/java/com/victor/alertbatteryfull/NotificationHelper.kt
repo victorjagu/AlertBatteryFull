@@ -14,8 +14,8 @@ object NotificationHelper {
     fun showNotification(context: Context, percentage: Int) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         
-        // Crear canal para Android 8+ si no existe
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        // Solo forzamos la creación del canal si Android nos confirma que no existe previamente
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && nm.getNotificationChannel(CHANNEL_ID) == null) {
             val name = context.getString(R.string.channel_notif_name)
             val desc = context.getString(R.string.channel_notif_description)
             val channel = NotificationChannel(CHANNEL_ID, name, NotificationManager.IMPORTANCE_HIGH).apply {

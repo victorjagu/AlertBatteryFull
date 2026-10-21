@@ -123,6 +123,7 @@ class MainActivity : Activity() {
                         vibrator.vibrate(
                             android.os.VibrationEffect.createOneShot(200, android.os.VibrationEffect.DEFAULT_AMPLITUDE),
                             audioAttributes
+                        )
                     } else {
                         // Versiones antiguas de rescate para asegurar retrocompatibilidad
                         @Suppress("DEPRECATION")

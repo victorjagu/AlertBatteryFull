@@ -1,11 +1,11 @@
 <resources>
     <style name="Theme.AlertBattery" parent="android:Theme.Material.Light.NoActionBar">
         <!-- Cambiado de #FFFFFF a verde -->
-        <item name="android:windowBackground">#52EB5E</item> 
-        <item name="android:statusBarColor">#52EB5E</item>
+        <item name="android:windowBackground">#C5FCC9</item> 
+        <item name="android:statusBarColor">#C5FCC9</item>
         <item name="android:windowLightStatusBar">true</item>
         <!-- Cambia la barra de navegación inferior (botones atrás y home) -->
-        <item name="android:navigationBarColor">#52EB5E</item>
+        <item name="android:navigationBarColor">#C5FCC9</item>
         <!-- Hace que los iconos (atrás/home) sean oscuros para que se vean bien sobre el claro -->
         <item name="android:windowLightNavigationBar">true</item>
     </style>

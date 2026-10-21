@@ -104,7 +104,7 @@ class BatteryReceiver : BroadcastReceiver() {
                 // Si se conecta el cargador y el límite es personalizado (<100),
                 // iniciamos el chequeo interno ligero y seguro de Android 14
                 if (action == Intent.ACTION_POWER_CONNECTED && targetPct < 100) {
-                    startModoBCheck(context, targetPct)
+                    startBatteryMonitorLoop(context, targetPct)
                 }
             }
         }

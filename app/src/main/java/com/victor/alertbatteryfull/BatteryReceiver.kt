@@ -140,7 +140,7 @@ class BatteryReceiver : BroadcastReceiver() {
                         if (soundType == 0) {
                             playVoiceAlert(context, targetPct, targetVolume)
                         } else if (soundType == 1) {
-                            playBeepAlert(targetVolume)
+                            playBeepAlert(context, targetVolume)
                         }
                     }
                 }
@@ -165,7 +165,7 @@ class BatteryReceiver : BroadcastReceiver() {
                     val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
                     if (am.ringerMode == AudioManager.RINGER_MODE_NORMAL) {
                         if (soundType == 0) playVoiceAlert(context, targetPct, targetVolume)
-                        else if (soundType == 1) playBeepAlert(targetVolume)
+                        else if (soundType == 1) playBeepAlert(context, targetVolume)
                     }
                 }
             }, 60000) // 1 minuto de retardo estricto

@@ -21,7 +21,7 @@ class AudioService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        // BLINDAJE ANDROID 14+: Inicializamos el motor TextToSpeech nativo de Google utilizando el contexto global de la aplicación
+        // Inicializamos el motor TextToSpeech nativo de Google utilizando el contexto global de la aplicación
         // Lo hacemos en el onCreate del servicio para que el motor esté listo antes de recibir las órdenes acústicas
         tts = TextToSpeech(applicationContext) { status ->
             if (status == TextToSpeech.SUCCESS) {
@@ -54,7 +54,7 @@ class AudioService : Service() {
             // 4. Consultamos el volumen multimedia (música) actual del dispositivo del usuario
             val originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
 
-            // LLAVE DE PASO INTELIGENTE: Si el usuario tiene el volumen multimedia del móvil a cero (modo noche),
+            // Si el usuario tiene el volumen multimedia del móvil a cero (modo noche),
             // respetamos el silencio absoluto, no reproducimos acústica y detenemos el servicio de inmediato.
             if (originalVolume == 0) {
                 stopSelf() // El servicio se auto-destruye y se borra de la RAM al instante
@@ -80,7 +80,7 @@ class AudioService : Service() {
             stopSelf()
         }
 
-        // ARQUITECTURA PROFESIONAL: Retornamos STICKY para que Android 14+ mantenga el proceso prioritario mientras la app habla de fondo
+        // Retornamos STICKY para que Android 14+ mantenga el proceso prioritario mientras la app habla de fondo
         return START_STICKY
     }
 
@@ -101,7 +101,7 @@ class AudioService : Service() {
             val targetSystemVol = (targetVolume * maxMusicVol) / 100
             am.setStreamVolume(AudioManager.STREAM_MUSIC, targetSystemVol, 0)
 
-            // 5. BLINDAJE ANDROID 14+: Forzamos al motor a usar el canal multimedia con categoría de ALERTA
+            // 5. Forzamos al motor a usar el canal multimedia con categoría de ALERTA
             // Esto permite el "ducking" (bajar el volumen de Spotify/música de fondo de forma nativa)
             val audioAttributes = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
@@ -175,7 +175,7 @@ class AudioService : Service() {
                     am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
                 } catch (e: Exception) {}
                 
-                // IMPORTANTE: Al terminar el proceso acústico, destruimos el servicio por completo de la memoria RAM
+                // Al terminar el proceso acústico, destruimos el servicio por completo de la memoria RAM
                 stopSelf()
             }, 300)
             

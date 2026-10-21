@@ -14,9 +14,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Vibrator
 import android.os.VibratorManager
-import android.speech.tts.TextToSpeech
 import androidx.core.app.NotificationCompat
-import java.util.Locale
 
 class BatteryReceiver : BroadcastReceiver() {
 
@@ -27,7 +25,6 @@ class BatteryReceiver : BroadcastReceiver() {
         // Hilos ligeros y variables estáticas para controlar los bucles en memoria sin servicios pesados
         private var loopHandler: Handler? = null
         private var loopRunnable: Runnable? = null
-        private var tts: TextToSpeech? = null
         private var isAlertActive = false
         private var monitoringHandler: Handler? = null
     }
@@ -112,159 +109,72 @@ class BatteryReceiver : BroadcastReceiver() {
     
     private fun triggerAlert(context: Context, targetPct: Int) {
         val prefs = context.getSharedPreferences("prefs_battery", Context.MODE_PRIVATE)
-        val soundType = prefs.getInt("sound_type", 0) // 0 = Voz, 1 = Beep, 2 = Silencioso
-        val useLoop = prefs.getBoolean("loop", true)
-        val useVibrate = prefs.getBoolean("vibrate", true)
-        val targetVolume = prefs.getInt("volume", 80)
-        val useSoundDelay = prefs.getBoolean("sound_delay", false)
+        val soundType = prefs.getInt("sound_type", 0)     // 0 = Voz, 1 = Beep, 2 = Silencioso
+        val useLoop = prefs.getBoolean("loop", true)       // Saber si el usuario quiere repetición
+        val useVibrate = prefs.getBoolean("vibrate", true) // Saber si quiere vibración
+        val targetVolume = prefs.getInt("volume", 80)     // El volumen elegido en la barra
+        val useSoundDelay = prefs.getBoolean("sound_delay", false) // El retardo de sonido de 1 minuto
 
-        // 1. Mostrar notificación nativa en el móvil al instante (para el Smartwatch o por si el usuario tiene el movil en la mano encendido)
+        // 1. Pintamos de inmediato la notificación visual nativa y eficiente que optimizamos
         NotificationHelper.showNotification(context, targetPct)
 
-        // Variables de control de hilos independientes
+        // 2. Preparamos el temporizador ligero en memoria de la app
         loopHandler = Handler(Looper.getMainLooper())
-        var isAudioAllowedToPlay = !useSoundDelay // Si no hay retardo, el audio puede sonar desde el segundo cero
+        var isAudioAllowedToPlay = !useSoundDelay
 
-        // 2. BUCLE PRINCIPAL DE VIBRACIÓN (Se ejecuta de forma continua cada 10 segundos)
         loopRunnable = object : Runnable {
             override fun run() {
-                // CONDICIÓN 1: La vibración depende exclusivamente del ajuste de la app
-                if (useVibrate) {
-                    executeVibration(context)
-                }
+                // Si el usuario activó la vibración, ejecutamos el latido de hardware de forma atómica
+                if (useVibrate) executeVibration(context)
 
-                // CONDICIÓN 2: El audio solo suena si ya ha pasado el tiempo de cortesía o no estaba activo
+                // Si el tipo de sonido NO es silencioso (tipo 2) y la llave de tiempo permite sonar
                 if (soundType != 2 && isAudioAllowedToPlay) {
                     val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    // Respetamos estrictamente si el móvil general está con el ringer en modo normal
                     if (am.ringerMode == AudioManager.RINGER_MODE_NORMAL) {
-                        if (soundType == 0) {
-                            playVoiceAlert(context, targetPct, targetVolume)
-                        } else if (soundType == 1) {
-                            playBeepAlert(context, targetVolume)
-                        }
+                        try {
+                            // NUEVO: Lanzamos la orden relámpago hacia nuestro AudioService especialista
+                            val serviceIntent = Intent(context, AudioService::class.java).apply {
+                                putExtra("sound_type", soundType)   // Le pasamos el tipo (Voz o Beep)
+                                putExtra("volume", targetVolume)     // Le pasamos el volumen de la barra
+                                putExtra("target_pct", targetPct)   // El porcentaje real de carga
+                                putExtra("is_test", false)          // Indicamos que es la alarma real, NO una prueba
+                            }
+                            context.startService(serviceIntent)
+                        } catch (e: Exception) {}
                     }
                 }
 
-                // Planificar la siguiente repetición del bucle a los 10 segundos exactos
+                // Si el bucle sigue activo, volvemos a programar esta comprobación en 10 segundos
                 if (useLoop && isAlertActive) {
                     loopHandler?.postDelayed(this, 10000)
                 }
             }
         }
 
-        // Arrancamos el bucle físico (vibración inmediata)
+        // Arrancamos el bucle de la alarma de inmediato
         loopHandler?.post(loopRunnable!!)
 
-        // 3. HILO DE DESBLOQUEO DEL AUDIO (Esperará 1 minuto si el retardo está activo)
+        // Lógica del interruptor de retardo (esperar 1 minuto antes de dar paso al sonido)
         if (soundType != 2 && useSoundDelay) {
             loopHandler?.postDelayed({
                 if (isAlertActive) {
                     isAudioAllowedToPlay = true
-                    // Forzamos una reproducción de audio inmediata al cumplir el minuto, 
-                    // ya que el bucle principal podría estar en mitad de una cuenta atrás de 10s
                     val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
                     if (am.ringerMode == AudioManager.RINGER_MODE_NORMAL) {
-                        if (soundType == 0) playVoiceAlert(context, targetPct, targetVolume)
-                        else if (soundType == 1) playBeepAlert(context, targetVolume)
+                        try {
+                            val serviceIntent = Intent(context, AudioService::class.java).apply {
+                                putExtra("sound_type", soundType)
+                                putExtra("volume", targetVolume)
+                                putExtra("target_pct", targetPct)
+                                putExtra("is_test", false)
+                            }
+                            context.startService(serviceIntent)
+                        } catch (e: Exception) {}
                     }
                 }
-            }, 60000) // 1 minuto de retardo estricto
+            }, 60000) // Retardo de 60 segundos exactos
         }
-    }
-
-    private fun playVoiceAlert(context: Context, pct: Int, volume: Int) {
-        // Recuperamos de forma dinámica el mensaje del diccionario según el porcentaje real
-        val message = if (pct == 100) {
-            context.getString(R.string.msg_voice_full)
-        } else {
-            context.getString(R.string.msg_voice_custom, pct)
-        }
-
-        // 1. Guardamos el volumen multimedia actual del teléfono
-        val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        val originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
-
-        // LLAVE DE PASO: Si el usuario tiene el multimedia a cero, respetamos el silencio absoluto
-        if (originalVolume == 0) return
-        
-        // Inicialización ligera y al vuelo del motor TextToSpeech nativo de Google
-        tts = TextToSpeech(context.applicationContext) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                tts?.let { t ->
-                    t.language = Locale.getDefault()
-                    // 2. Subimos temporalmente el volumen del sistema al nivel que pide nuestra barra
-                    val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                    val targetSystemVol = (volume * maxMusicVol) / 100
-                    am.setStreamVolume(AudioManager.STREAM_MUSIC, targetSystemVol, 0)
-
-                    // 3. Forzamos al motor a usar el canal multimedia (STREAM_MUSIC) con categoría de ALERTA
-                    // Esto permite el "ducking" (bajar el volumen de Spotify/música de fondo de forma nativa)
-                    val audioAttributes = android.media.AudioAttributes.Builder()
-                        .setUsage(android.media.AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
-                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
-                        .build()
-                    t.setAudioAttributes(audioAttributes)
-
-                    // 4. Creamos un escuchador que SIEMPRE restaurará el volumen del móvil al terminar la frase
-                    t.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
-                        override fun onStart(utteranceId: String?) {}
-                        
-                        override fun onDone(utteranceId: String?) {
-                            try {
-                                // RESTAURAMOS el volumen original del móvil inmediatamente
-                                am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
-                                
-                                // Si además era solo una prueba manual de la pantalla, destruimos el motor de la RAM
-                                if (!isAlertActive) {
-                                    tts?.stop()
-                                    tts?.shutdown()
-                                    tts = null
-                                }
-                            } catch (e: Exception) {}
-                        }
-                        
-                        override fun onError(utteranceId: String?) {
-                            try { am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0) } catch (e: Exception) {}
-                        }
-                    })
-
-                    // Creamos el paquete de parámetros para enlazar el ID en Android 14
-                    val params = android.os.Bundle().apply {
-                        putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "BatteryAlertID")
-                    }
-                    // Lanzamos la reproducción de voz pasándole los parámetros requeridos
-                    t.speak(message, TextToSpeech.QUEUE_FLUSH, params, "BatteryAlertID")
-                }
-            }
-        }
-    }
-
-    private fun playBeepAlert(context: Context, volume: Int) {
-        try {
-            val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            // 1. Guardamos el volumen multimedia actual del teléfono
-            val originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
-
-            // LLAVE DE PASO: Si el usuario tiene el multimedia a cero, respetamos el silencio absoluto
-            if (originalVolume == 0) return
-
-            // 2. Subimos temporalmente el volumen del sistema al nivel que pide nuestra barra
-            val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            val targetSystemVol = (volume * maxMusicVol) / 100
-            am.setStreamVolume(AudioManager.STREAM_MUSIC, targetSystemVol, 0)
-
-            // 3. Emitimos el pitido por el canal multimedia al máximo relativo
-            val toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
-            toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 250)
-            
-            // 4. Liberamos el hardware y RESTAURAMOS el volumen original del usuario
-            Handler(Looper.getMainLooper()).postDelayed({ 
-                try {
-                    toneGen.release() 
-                    am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
-                } catch (e: Exception) {}
-            }, 300)
-        } catch (e: Exception) {}
     }
 
     private fun executeVibration(context: Context) {

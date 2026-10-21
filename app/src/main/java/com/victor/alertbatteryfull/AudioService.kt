@@ -36,12 +36,6 @@ class AudioService : Service() {
                     executeVoiceAlert(am, originalVolume, targetVolume, targetPct, isTest)
                     pendingIntent = null
                 }
-            } else {
-                // DIAGNÓSTICO VISUAL: BORRAR TODO EL ELSE
-                Handler(Looper.getMainLooper()).post {
-                    android.widget.Toast.makeText(applicationContext, "Error TTS Inicialización. Código: $status", android.widget.Toast.LENGTH_LONG).show()
-                }
-                stopSelf()
             }
         }
     }
@@ -102,11 +96,6 @@ class AudioService : Service() {
             // 3. Establecemos el idioma por defecto configurado en el teléfono del usuario
             t.language = Locale.getDefault()
 
-            // 4. Subimos temporalmente el volumen del sistema al nivel exacto que marca nuestra barra
-            val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            val targetSystemVol = (targetVolume * maxMusicVol) / 100
-            am.setStreamVolume(AudioManager.STREAM_MUSIC, targetSystemVol, 0)
-
             // 5. Forzamos al motor a usar el canal multimedia con categoría de ALERTA
             // Esto permite el "ducking" (bajar el volumen de Spotify/música de fondo de forma nativa)
             val audioAttributes = AudioAttributes.Builder()
@@ -123,9 +112,6 @@ class AudioService : Service() {
                     // Usamos un Handler atado al hilo principal para manipular los componentes de audio de forma segura
                     Handler(Looper.getMainLooper()).post {
                         try {
-                            // RESTAURAMOS el volumen original que tenía el móvil del usuario inmediatamente
-                            am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
-                            
                             // Si es una prueba manual de la pantalla, detenemos el audio en este instante
                             if (isTest) {
                                 tts?.stop()
@@ -139,9 +125,6 @@ class AudioService : Service() {
 
                 override fun onError(utteranceId: String?) {
                     Handler(Looper.getMainLooper()).post {
-                        // DIAGNÓSTICO VISUAL: BORRAR LINEA TOAST
-                        android.widget.Toast.makeText(applicationContext, "Error TTS al Hablar. ID: $utteranceId", android.widget.Toast.LENGTH_LONG).show()
-                        try { am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0) } catch (e: Exception) {}
                         stopSelf()
                     }
                 }
@@ -150,6 +133,8 @@ class AudioService : Service() {
             // 7. Empaquetamos el ID de la alerta exigido por Android 14+ para sincronizar el escuchador
             val params = Bundle().apply {
                 putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "BatteryAlertID")
+                // NUEVO: Pasamos el volumen seleccionado convertido a la escala flotante nativa (0.0 a 1.0)
+                putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, targetVolume / 100f)
             }
 
             // 8. Ordenamos al sintetizador de voz que reproduzca el mensaje
@@ -159,16 +144,8 @@ class AudioService : Service() {
 
     private fun playBeepAlert(am: AudioManager, originalVolume: Int, targetVolume: Int) {
         try {
-            // 1. Calculamos la equivalencia del volumen seleccionado según el máximo que permita el hardware del móvil
-            val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            val targetSystemVol = (targetVolume * maxMusicVol) / 100
-            
-            // 2. Subimos temporalmente el canal multimedia del sistema al nivel que marca nuestra barra
-            am.setStreamVolume(AudioManager.STREAM_MUSIC, targetSystemVol, 0)
-
-            // 3. Inicializamos el generador de tonos físicos atado al canal multimedia (STREAM_MUSIC)
-            // Configuramos la potencia al máximo relativo (100) ya que el volumen real lo acabamos de fijar arriba
-            val toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
+            // Inicializamos el pitido pasándole el volumen exacto de nuestra barra (0 a 100) de forma nativa
+            val toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, targetVolume)
             
             // 4. Emitimos un único pitido limpio de hardware con una duración de 250 milisegundos
             toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 250)
@@ -178,9 +155,6 @@ class AudioService : Service() {
                 try {
                     // Liberamos los controladores físicos de audio para que el chip de sonido pueda entrar en reposo
                     toneGen.release() 
-                    
-                    // RESTAURAMOS el volumen original que tenía el usuario en su móvil antes de sonar la alerta
-                    am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
                 } catch (e: Exception) {}
                 
                 // Al terminar el proceso acústico, destruimos el servicio por completo de la memoria RAM
@@ -188,8 +162,7 @@ class AudioService : Service() {
             }, 300)
             
         } catch (e: Exception) {
-            // En caso de un fallo inesperado de hardware, nos aseguramos de restaurar el volumen y apagar el servicio
-            try { am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0) } catch (ex: Exception) {}
+            // En caso de un fallo inesperado de hardware, nos aseguramos de apagar el servicio
             stopSelf()
         }
     }

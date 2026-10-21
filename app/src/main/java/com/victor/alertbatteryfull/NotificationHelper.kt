@@ -18,7 +18,7 @@ object NotificationHelper {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && nm.getNotificationChannel(CHANNEL_ID) == null) {
             val name = context.getString(R.string.channel_notif_name)
             val desc = context.getString(R.string.channel_notif_description)
-            val channel = NotificationChannel(CHANNEL_ID, name, NotificationManager.IMPORTANCE_HIGH).apply {
+            val channel = NotificationChannel(CHANNEL_ID, name, NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = desc
             }
             nm.createNotificationChannel(channel)
@@ -37,7 +37,7 @@ object NotificationHelper {
             .setSmallIcon(context.applicationInfo.icon) // Usa el icono de tu app automáticamente
             .setContentTitle(context.getString(R.string.msg_notif_title))
             .setContentText(context.getString(R.string.msg_notif_text, percentage))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(true)
             .setDeleteIntent(deletePendingIntent)

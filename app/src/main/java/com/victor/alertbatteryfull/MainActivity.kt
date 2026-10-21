@@ -147,12 +147,31 @@ class MainActivity : Activity() {
                 // El usuario ha soltado la barra: calculamos el volumen final real
                 val currentProgress = sb?.progress ?: 80
                 try {
-                    // Inicializamos el motor de sonido con el volumen exacto seleccionado al soltar
-                    val toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, currentProgress)
-                    // Emitimos un único Beep limpio de 150ms para verificar la potencia real
+                    val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    // 1. Consultamos el volumen multimedia actual del teléfono
+                    val originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+                    
+                    // LLAVE DE PASO: Si el móvil está con la música a cero, respetamos el silencio
+                    if (originalVolume == 0) return
+
+                    // 2. Subimos temporalmente el volumen del sistema al nivel de nuestra barra
+                    // Calculamos la equivalencia según el máximo que permita el hardware del teléfono
+                    val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                    val targetSystemVol = (currentProgress * maxMusicVol) / 100
+                    am.setStreamVolume(AudioManager.STREAM_MUSIC, targetSystemVol, 0)
+
+                    // 3. Emitimos el pitido por el canal multimedia (STREAM_MUSIC) al máximo relativo (100)
+                    // ya que el volumen real lo acabamos de fijar en el sistema
+                    val toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
                     toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
-                    // Liberamos el hardware inmediatamente para ahorrar memoria RAM
-                    sb?.postDelayed({ toneGenerator.release() }, 200)
+                    
+                    // 4. Tras los 150ms del pitido, liberamos el hardware y RESTAURAMOS el volumen original del móvil
+                    sb?.postDelayed({
+                        try {
+                            toneGenerator.release()
+                            am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
+                        } catch (e: Exception) {}
+                    }, 200)
                 } catch (e: Exception) {
                     // Salvaguarda por si el hardware del chip de audio está ocupado
                 }
@@ -186,9 +205,29 @@ class MainActivity : Activity() {
                 
                 1 -> { // CASO DE BEEP: Sonido físico limpio al volumen de la barra
                     try {
-                        val toneGenerator = android.media.ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION, currentVolume)
-                        toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 150)
-                        seekVolume.postDelayed({ toneGenerator.release() }, 200)
+                        val am = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+                        // 1. Guardamos el volumen multimedia actual del teléfono
+                        val originalVolume = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
+                        
+                        // LLAVE DE PASO: Si el móvil tiene la música a cero, respetamos el silencio
+                        if (originalVolume > 0) {
+                            // 2. Subimos el volumen del sistema al nivel que marca nuestra barra
+                            val maxMusicVol = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
+                            val targetSystemVol = (currentVolume * maxMusicVol) / 100
+                            am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, targetSystemVol, 0)
+
+                            // 3. Emitimos el pitido por el canal multimedia
+                            val toneGenerator = android.media.ToneGenerator(android.media.AudioManager.STREAM_MUSIC, 100)
+                            toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 150)
+                            
+                            // 4. Liberamos el hardware y devolvemos el móvil a su volumen original
+                            seekVolume.postDelayed({
+                                try {
+                                    toneGenerator.release()
+                                    am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, originalVolume, 0)
+                                } catch (e: Exception) {}
+                            }, 200)
+                        }
                     } catch (e: Exception) {}
                 }
                 

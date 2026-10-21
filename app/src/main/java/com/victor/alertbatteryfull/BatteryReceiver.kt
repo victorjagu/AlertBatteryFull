@@ -43,17 +43,6 @@ class BatteryReceiver : BroadcastReceiver() {
             return
         }
 
-        // Detectamos la orden de prueba enviada desde la MainActivity
-        if (action == "ACTION_TEST_VOICE_ALERT") {
-            val targetPct = intent.getIntExtra("target_pct", 100)
-            val prefs = context.getSharedPreferences("prefs_battery", Context.MODE_PRIVATE)
-            val targetVolume = prefs.getInt("volume", 80)
-    
-            // Reutilizamos tu función nativa de voz pasándole el porcentaje exacto y el volumen
-            playVoiceAlert(context, targetPct, targetVolume)
-            return
-        }
-
         // CASO 1: SE DESCONECTA EL CARGADOR -> Limpieza absoluta inmediata de RAM y alertas
         if (action == Intent.ACTION_POWER_DISCONNECTED) {
             stopAlerts()
@@ -196,10 +185,6 @@ class BatteryReceiver : BroadcastReceiver() {
         loopRunnable = null
         // Detener el chequeo silencioso del startBatteryMonitorLoop, si existiera
         monitoringHandler = null 
-        // Destruir por completo el motor de voz de la RAM
-        tts?.stop()
-        tts?.shutdown()
-        tts = null
     }
 
     private fun startBatteryMonitorLoop(context: Context, targetPct: Int) {

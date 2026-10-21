@@ -220,6 +220,12 @@ class BatteryReceiver : BroadcastReceiver() {
             // Mapeamos el volumen al rango oficial (0-100)
             val toneGen = ToneGenerator(AudioManager.STREAM_NOTIFICATION, volume)
             toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 250) // Beep de 250 milisegundos
+            // Esperamos 300ms a que termine el sonido y liberamos el chip de audio
+            Handler(Looper.getMainLooper()).postDelayed({ 
+                try {
+                    toneGen.release() 
+                } catch (e: Exception) {}
+            }, 300)
         } catch (e: Exception) {
             // Salvaguarda si el hardware de sonido está ocupado
         }

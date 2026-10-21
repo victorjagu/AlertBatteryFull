@@ -29,6 +29,7 @@ class BatteryReceiver : BroadcastReceiver() {
         private var loopRunnable: Runnable? = null
         private var tts: TextToSpeech? = null
         private var isAlertActive = false
+        private var monitoringHandler: Handler? = null
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -89,11 +90,10 @@ class BatteryReceiver : BroadcastReceiver() {
                     triggerAlert(context, targetPct)
                 }
             } else {
-                // Si el cargador se conectó pero aún no llega al porcentaje, y estábamos en modo personalizado,
-                // nos aseguramos de registrar dinámicamente el receptor paso a paso sólo mientras dure la carga.
+                // Si se conecta el cargador y el límite es personalizado (<100),
+                // iniciamos el chequeo interno ligero y seguro de Android 14
                 if (action == Intent.ACTION_POWER_CONNECTED && targetPct < 100) {
-                    val filter = android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-                    context.applicationContext.registerReceiver(this, filter)
+                    startModoBCheck(context, targetPct)
                 }
             }
         }
@@ -211,9 +211,44 @@ class BatteryReceiver : BroadcastReceiver() {
         loopHandler?.removeCallbacks(loopRunnable ?: return)
         loopHandler = null
         loopRunnable = null
+        // Detener el chequeo silencioso del startBatteryMonitorLoop, si existiera
+        monitoringHandler = null 
         // Destruir por completo el motor de voz de la RAM
         tts?.stop()
         tts?.shutdown()
         tts = null
     }
+
+    private fun startBatteryMonitorLoop(context: Context, targetPct: Int) {
+        if (monitoringHandler != null) return // Si ya está corriendo, no lo duplicamos
+        
+        monitoringHandler = Handler(Looper.getMainLooper())
+        val checkRunnable = object : Runnable {
+            override fun run() {
+                val prefs = context.getSharedPreferences("prefs_battery", Context.MODE_PRIVATE)
+                val isEnabled = prefs.getBoolean("enabled", false)
+                
+                // Si la app se desactivó o ya saltó la alarma, paramos el temporizador
+                if (!isEnabled || isAlertActive) {
+                    monitoringHandler = null
+                    return
+                }
+
+                // Consultamos directamente al hardware usando el BatteryManager nativo
+                val bm = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+                val currentPct = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+
+                if (currentPct >= targetPct) {
+                    isAlertActive = true
+                    triggerAlert(context, targetPct)
+                    monitoringHandler = null // Alarma activada, apagamos este chequeo
+                } else {
+                    // Si no ha llegado al porcentaje, vuelve a consultar en 60 segundos
+                    monitoringHandler?.postDelayed(this, 60000)
+                }
+            }
+        }
+        monitoringHandler?.post(checkRunnable)
+    }
+
 }

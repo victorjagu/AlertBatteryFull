@@ -107,7 +107,7 @@ class AudioService : Service() {
         }
 
         // 2. Inicializamos el motor TextToSpeech nativo de Google utilizando el contexto seguro del servicio
-        tts = TextToSpeech(this) { status ->
+        tts = TextToSpeech(applicationContext) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 tts?.let { t ->
                     // 3. Establecemos el idioma por defecto configurado en el teléfono del usuario

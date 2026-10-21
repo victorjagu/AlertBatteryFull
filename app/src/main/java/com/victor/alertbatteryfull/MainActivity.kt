@@ -114,9 +114,15 @@ class MainActivity : Activity() {
                     val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
                     
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        // Android 8+: Emitimos un pulso moderno estándar de 200 milisegundos a potencia normal
-                        val effect = android.os.VibrationEffect.createOneShot(200, android.os.VibrationEffect.DEFAULT_AMPLITUDE)
-                        vibrator.vibrate(effect)
+                        // Creamos los atributos de audio indicando que es una alarma de notificación
+                        val audioAttributes = android.media.AudioAttributes.Builder()
+                            .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_DELAYED)
+                            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build()
+                        // Enviamos el efecto de vibración junto con los atributos exigidos por Android 14
+                        vibrator.vibrate(
+                            android.os.VibrationEffect.createOneShot(200, android.os.VibrationEffect.DEFAULT_AMPLITUDE),
+                            audioAttributes
                     } else {
                         // Versiones antiguas de rescate para asegurar retrocompatibilidad
                         @Suppress("DEPRECATION")

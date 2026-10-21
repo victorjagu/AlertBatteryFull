@@ -180,55 +180,87 @@ class BatteryReceiver : BroadcastReceiver() {
             context.getString(R.string.msg_voice_custom, pct)
         }
 
+        // 1. Guardamos el volumen multimedia actual del teléfono
+        val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+
+        // LLAVE DE PASO: Si el usuario tiene el multimedia a cero, respetamos el silencio absoluto
+        if (originalVolume == 0) return
+        
         // Inicialización ligera y al vuelo del motor TextToSpeech nativo de Google
         tts = TextToSpeech(context.applicationContext) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 tts?.let { t ->
                     t.language = Locale.getDefault()
-                    // Configuramos el volumen del flujo de música/notificación de forma segura
-                    val bundle = android.os.Bundle()
-                    bundle.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, volume / 100f)
+                    // 2. Subimos temporalmente el volumen del sistema al nivel que pide nuestra barra
+                    val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                    val targetSystemVol = (volume * maxMusicVol) / 100
+                    am.setStreamVolume(AudioManager.STREAM_MUSIC, targetSystemVol, 0)
 
-                    // Si es solo una prueba manual le pedimos a Android que destruya el motor en cuanto termine de pronunciar la frase.
-                    if (!isAlertActive) {
-                        t.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
-                            override fun onStart(utteranceId: String?) {}
-                            
-                            // Android ejecuta este método automáticamente en el milisegundo exacto en que termina el audio
-                            override fun onDone(utteranceId: String?) {
-                                try {
-                                    tts?.stop()       // Detiene cualquier proceso de audio residual
-                                    tts?.shutdown()   // Desconecta el motor por completo del sistema
-                                    tts = null        // Libera la memoria RAM al 100%
-                                } catch (e: Exception) {}
-                            }
-                            
-                            override fun onError(utteranceId: String?) {}
-                        })
-                    }
+                    // 3. Forzamos al motor a usar el canal multimedia (STREAM_MUSIC) con categoría de ALERTA
+                    // Esto permite el "ducking" (bajar el volumen de Spotify/música de fondo de forma nativa)
+                    val audioAttributes = android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build()
+                    t.setAudioAttributes(audioAttributes)
 
-                    // Dejamos que diga la frase
-                    t.speak(message, TextToSpeech.QUEUE_FLUSH, bundle, "BatteryAlertID")
+                    // 4. Creamos un escuchador que SIEMPRE restaurará el volumen del móvil al terminar la frase
+                    t.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+                        override fun onStart(utteranceId: String?) {}
+                        
+                        override fun onDone(utteranceId: String?) {
+                            try {
+                                // RESTAURAMOS el volumen original del móvil inmediatamente
+                                am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
+                                
+                                // Si además era solo una prueba manual de la pantalla, destruimos el motor de la RAM
+                                if (!isAlertActive) {
+                                    tts?.stop()
+                                    tts?.shutdown()
+                                    tts = null
+                                }
+                            } catch (e: Exception) {}
+                        }
+                        
+                        override fun onError(utteranceId: String?) {
+                            try { am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0) } catch (e: Exception) {}
+                        }
+                    })
+
+                    // Lanzamos la reproducción de voz
+                    t.speak(message, TextToSpeech.QUEUE_FLUSH, null, "BatteryAlertID")
                 }
             }
         }
     }
 
-    private fun playBeepAlert(volume: Int) {
+    private fun playBeepAlert(context: Context, volume: Int) {
         try {
-            // Usamos el ToneGenerator de hardware nativo para generar un Beep puro sin cargar archivos pesados en RAM
-            // Mapeamos el volumen al rango oficial (0-100)
-            val toneGen = ToneGenerator(AudioManager.STREAM_NOTIFICATION, volume)
-            toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 250) // Beep de 250 milisegundos
-            // Esperamos 300ms a que termine el sonido y liberamos el chip de audio
+            val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            // 1. Guardamos el volumen multimedia actual del teléfono
+            val originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+
+            // LLAVE DE PASO: Si el usuario tiene el multimedia a cero, respetamos el silencio absoluto
+            if (originalVolume == 0) return
+
+            // 2. Subimos temporalmente el volumen del sistema al nivel que pide nuestra barra
+            val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            val targetSystemVol = (volume * maxMusicVol) / 100
+            am.setStreamVolume(AudioManager.STREAM_MUSIC, targetSystemVol, 0)
+
+            // 3. Emitimos el pitido por el canal multimedia al máximo relativo
+            val toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
+            toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 250)
+            
+            // 4. Liberamos el hardware y RESTAURAMOS el volumen original del usuario
             Handler(Looper.getMainLooper()).postDelayed({ 
                 try {
                     toneGen.release() 
+                    am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
                 } catch (e: Exception) {}
             }, 300)
-        } catch (e: Exception) {
-            // Salvaguarda si el hardware de sonido está ocupado
-        }
+        } catch (e: Exception) {}
     }
 
     private fun executeVibration(context: Context) {

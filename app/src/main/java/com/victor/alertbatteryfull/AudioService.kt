@@ -36,6 +36,12 @@ class AudioService : Service() {
                     executeVoiceAlert(am, originalVolume, targetVolume, targetPct, isTest)
                     pendingIntent = null
                 }
+            } else {
+                // DIAGNÓSTICO VISUAL: BORRAR TODO EL ELSE
+                Handler(Looper.getMainLooper()).post {
+                    android.widget.Toast.makeText(applicationContext, "Error TTS Inicialización. Código: $status", android.widget.Toast.LENGTH_LONG).show()
+                }
+                stopSelf()
             }
         }
     }
@@ -133,6 +139,8 @@ class AudioService : Service() {
 
                 override fun onError(utteranceId: String?) {
                     Handler(Looper.getMainLooper()).post {
+                        // DIAGNÓSTICO VISUAL: BORRAR LINEA TOAST
+                        android.widget.Toast.makeText(applicationContext, "Error TTS al Hablar. ID: $utteranceId", android.widget.Toast.LENGTH_LONG).show()
                         try { am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0) } catch (e: Exception) {}
                         stopSelf()
                     }

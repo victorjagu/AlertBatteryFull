@@ -34,5 +34,11 @@
             </intent-filter>
         </receiver>
 
+        <!-- REGISTRO DEL GESTOR DE AUDIO: Declaramos el servicio para que Android 14+ permita su ejecución ligera en segundo plano -->
+        <service
+            android:name=".AudioService"
+            android:enabled="true"
+            android:exported="false" />
+        
     </application>
 </manifest>

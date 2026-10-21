@@ -228,8 +228,12 @@ class BatteryReceiver : BroadcastReceiver() {
                         }
                     })
 
-                    // Lanzamos la reproducción de voz
-                    t.speak(message, TextToSpeech.QUEUE_FLUSH, null, "BatteryAlertID")
+                    // Creamos el paquete de parámetros para enlazar el ID en Android 14
+                    val params = android.os.Bundle().apply {
+                        putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "BatteryAlertID")
+                    }
+                    // Lanzamos la reproducción de voz pasándole los parámetros requeridos
+                    t.speak(message, TextToSpeech.QUEUE_FLUSH, params, "BatteryAlertID")
                 }
             }
         }

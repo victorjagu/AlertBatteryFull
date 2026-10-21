@@ -132,6 +132,18 @@
             android:paddingStart="16dp"
             android:paddingEnd="16dp"/>
 
+        <TextView
+            android:id="@+id/tv_nota_informativa"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="16dp"
+            android:text="Nota: El volumen se reproduce por el canal multimedia (música), salvo que esté a 0 (se ignora modo silencio/vibración)!"
+            android:textSize="12sp"
+            android:textStyle="italic"
+            android:textColor="#666666"
+            android:textAlignment="center"/>
+        
         <!-- Configuración de optimización de batería (Para Samsung, Xiaomi, etc) -->
         <Button
             android:id="@+id/btn_battery_settings"

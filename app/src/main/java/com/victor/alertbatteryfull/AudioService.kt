@@ -87,7 +87,7 @@ class AudioService : Service() {
                     val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
                     val computedVol = (targetVolume * maxMusicVol) / 100
                     am.setStreamVolume(AudioManager.STREAM_MUSIC, computedVol, 0)
-                    executeBeepAlert(am, originalVolume, targetVolume)
+                    playBeepAlert(am, originalVolume, targetVolume)
                 }
                 else -> stopSelf() // Por seguridad, si llega un tipo desconocido, nos apagamos
             }

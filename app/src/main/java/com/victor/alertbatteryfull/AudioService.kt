@@ -164,14 +164,26 @@ class AudioService : Service() {
 
     private fun playBeepAlert(am: AudioManager, originalVolume: Int, targetVolume: Int) {
         try {
-            // Inicializamos el pitido pasándole el volumen exacto de nuestra barra (0 a 100) de forma nativa
-            val toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, targetVolume)
+            // 1. Subimos el volumen del sistema multimedia justo antes de reproducir el pitido
+            try {
+                val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                val computedVol = (targetVolume * maxMusicVol) / 100
+                am.setStreamVolume(AudioManager.STREAM_MUSIC, computedVol, 0)
+            } catch (e: Exception) {}
+    
+            // 2. Inicializamos el pitido pasándole el volumen nativo máximo (100) ya que controlamos el canal globalmente
+            val toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
             
-            // 4. Emitimos un único pitido limpio de hardware con una duración de 250 milisegundos
+            // 3. Emitimos un único pitido limpio de hardware con una duración de 250 milisegundos
             toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 250)
             
-            // 5. Programamos un retraso ligeramente mayor (300ms) para garantizar que el pitido termine de sonar completo
+            // 4. Programamos el retraso de 300ms para asegurar que termine de sonar completo
             Handler(Looper.getMainLooper()).postDelayed({ 
+                try {
+                    // 5. Devolvemos el móvil al volumen que tenía el usuario originalmente
+                    am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
+                } catch (e: Exception) {}
+    
                 try {
                     // Liberamos los controladores físicos de audio para que el chip de sonido pueda entrar en reposo
                     toneGen.release() 
@@ -182,7 +194,10 @@ class AudioService : Service() {
             }, 300)
             
         } catch (e: Exception) {
-            // En caso de un fallo inesperado de hardware, nos aseguramos de apagar el servicio
+            // En caso de un fallo inesperado de hardware, nos aseguramos de restaurar el volumen y apagar el servicio
+            try {
+                am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
+            } catch (ex: Exception) {}
             stopSelf()
         }
     }

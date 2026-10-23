@@ -144,6 +144,10 @@ class AudioService : Service() {
                 override fun onError(utteranceId: String?) {
                     finalizarAvisoConRetraso()
                 }
+
+                override fun onStop(utteranceId: String?) {
+                    finalizarAvisoConRetraso()
+                }
             })
 
             // 7. Empaquetamos el ID de la alerta exigido por Android 14+ para sincronizar el escuchador

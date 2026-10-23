@@ -103,6 +103,7 @@ class BatteryReceiver : BroadcastReceiver() {
         val useVibrate = prefs.getBoolean("vibrate", true) // Saber si quiere vibración
         val targetVolume = prefs.getInt("volume", 80)     // El volumen elegido en la barra
         val useSoundDelay = prefs.getBoolean("sound_delay", false) // El retardo de sonido de 1 minuto
+        val ignoreSilence = prefs.getBoolean("ignore_silence", false)    //ignorar el modo silencio/vibracion del movil
 
         // 1. Pintamos de inmediato la notificación visual nativa y eficiente que optimizamos
         NotificationHelper.showNotification(context, targetPct)
@@ -120,7 +121,7 @@ class BatteryReceiver : BroadcastReceiver() {
                 if (soundType != 2 && isAudioAllowedToPlay) {
                     val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
                     // Respetamos estrictamente si el móvil general está con el ringer en modo normal
-                    if (am.ringerMode == AudioManager.RINGER_MODE_NORMAL) {
+                    if (ignoreSilence || am.ringerMode == AudioManager.RINGER_MODE_NORMAL) {
                         try {
                             // NUEVO: Lanzamos la orden relámpago hacia nuestro AudioService especialista
                             val serviceIntent = Intent(context, AudioService::class.java).apply {
@@ -150,7 +151,7 @@ class BatteryReceiver : BroadcastReceiver() {
                 if (isAlertActive) {
                     isAudioAllowedToPlay = true
                     val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                    if (am.ringerMode == AudioManager.RINGER_MODE_NORMAL) {
+                    if (ignoreSilence || am.ringerMode == AudioManager.RINGER_MODE_NORMAL) {
                         try {
                             val serviceIntent = Intent(context, AudioService::class.java).apply {
                                 putExtra("sound_type", soundType)

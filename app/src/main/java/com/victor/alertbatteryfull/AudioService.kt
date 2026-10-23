@@ -141,11 +141,13 @@ class AudioService : Service() {
                     finalizarAvisoConRetraso()
                 }
 
+                @Deprecated("Inutilizado en niveles de API modernos, pero obligatorio de declarar")
                 override fun onError(utteranceId: String?) {
                     finalizarAvisoConRetraso()
                 }
 
-                override fun onStop(utteranceId: String?) {
+                override fun onStop(utteranceId: String?, interrupted: Boolean) {
+                    super.onStop(utteranceId, interrupted)
                     finalizarAvisoConRetraso()
                 }
             })

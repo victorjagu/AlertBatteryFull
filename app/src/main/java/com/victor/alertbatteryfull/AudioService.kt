@@ -18,6 +18,7 @@ class AudioService : Service() {
     private var tts: TextToSpeech? = null
     private var isTtsReady = false
     private var pendingIntent: Intent? = null
+    private var isSpeaking = false
 
     override fun onCreate() {
         super.onCreate()
@@ -61,18 +62,33 @@ class AudioService : Service() {
                 return START_NOT_STICKY
             }
 
+            // Evitamos que el bucle repetitivo interrumpa si la app ya está hablando
+            if (soundType == 0 && isSpeaking) {
+                return START_STICKY
+            }
+            
             // 5. Si el volumen del móvil es mayor que cero, ejecutamos la acción correspondiente
             when (soundType) {
-                0 -> {
+                0 -> {    // Lanzamos Voz
                     // Si el motor de Google ya está listo en el sistema, habla inmediatamente
                     if (isTtsReady) {
+                        isSpeaking = true
+                        // Forzamos el canal multimedia STREAM_MUSIC para el volumen absoluto
+                        val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                        val computedVol = (targetVolume * maxMusicVol) / 100
+                        am.setStreamVolume(AudioManager.STREAM_MUSIC, computedVol, 0)
                         executeVoiceAlert(am, originalVolume, targetVolume, targetPct, isTest)
                     } else {
                         // Si el motor aún se está conectando de fondo, guardamos este intento para lanzarlo al revivir
                         pendingIntent = intent
                     }
                 }
-                1 -> playBeepAlert(am, originalVolume, targetVolume)                    // Lanzar el Pitido (Beep)
+                1 -> {    // Lanzar el Pitido (Beep)
+                    val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                    val computedVol = (targetVolume * maxMusicVol) / 100
+                    am.setStreamVolume(AudioManager.STREAM_MUSIC, computedVol, 0)
+                    executeBeepAlert(am, originalVolume, targetVolume)
+                }
                 else -> stopSelf() // Por seguridad, si llega un tipo desconocido, nos apagamos
             }
         } else {
@@ -109,22 +125,22 @@ class AudioService : Service() {
                 override fun onStart(utteranceId: String?) {}
 
                 override fun onDone(utteranceId: String?) {
-                    // Usamos un Handler atado al hilo principal para manipular los componentes de audio de forma segura
                     Handler(Looper.getMainLooper()).post {
                         try {
-                            // Si es una prueba manual de la pantalla, detenemos el audio en este instante
-                            if (isTest) {
-                                tts?.stop()
-                            }
+                            // Devolvemos el móvil al volumen que tenía el usuario antes del aviso
+                            am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
                         } catch (e: Exception) {}
-                        
-                        // El trabajo acústico de la voz ha terminado: destruimos el servicio por completo de la memoria RAM
+                        isSpeaking = false
                         stopSelf()
                     }
                 }
 
                 override fun onError(utteranceId: String?) {
                     Handler(Looper.getMainLooper()).post {
+                        try {
+                            am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
+                        } catch (e: Exception) {}
+                        isSpeaking = false
                         stopSelf()
                     }
                 }

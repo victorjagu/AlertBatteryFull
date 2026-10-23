@@ -73,10 +73,6 @@ class AudioService : Service() {
                     // Si el motor de Google ya está listo en el sistema, habla inmediatamente
                     if (isTtsReady) {
                         isSpeaking = true
-                        // Forzamos el canal multimedia STREAM_MUSIC para el volumen absoluto
-                        val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                        val computedVol = (targetVolume * maxMusicVol) / 100
-                        am.setStreamVolume(AudioManager.STREAM_MUSIC, computedVol, 0)
                         executeVoiceAlert(am, originalVolume, targetVolume, targetPct, isTest)
                     } else {
                         // Si el motor aún se está conectando de fondo, guardamos este intento para lanzarlo al revivir
@@ -84,9 +80,6 @@ class AudioService : Service() {
                     }
                 }
                 1 -> {    // Lanzar el Pitido (Beep)
-                    val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                    val computedVol = (targetVolume * maxMusicVol) / 100
-                    am.setStreamVolume(AudioManager.STREAM_MUSIC, computedVol, 0)
                     playBeepAlert(am, originalVolume, targetVolume)
                 }
                 else -> stopSelf() // Por seguridad, si llega un tipo desconocido, nos apagamos
@@ -107,7 +100,14 @@ class AudioService : Service() {
         } else {
             getString(R.string.msg_voice_custom, pct)
         }
-
+    
+        // Subimos el volumen del móvil justo en el milisegundo antes de hablar
+        try {
+            val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            val computedVol = (targetVolume * maxMusicVol) / 100
+            am.setStreamVolume(AudioManager.STREAM_MUSIC, computedVol, 0)
+        } catch (e: Exception) {}
+    
         tts?.let { t ->
             // 3. Establecemos el idioma por defecto configurado en el teléfono del usuario
             t.language = Locale.getDefault()
@@ -115,7 +115,7 @@ class AudioService : Service() {
             // 5. Forzamos al motor a usar el canal multimedia con categoría de ALERTA
             // Esto permite el "ducking" (bajar el volumen de Spotify/música de fondo de forma nativa)
             val audioAttributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                .setUsage(AudioAttributes.USAGE_MEDIA)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                 .build()
             t.setAudioAttributes(audioAttributes)

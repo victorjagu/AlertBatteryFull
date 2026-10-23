@@ -40,6 +40,7 @@ class MainActivity : Activity() {
     private lateinit var rgSoundType: RadioGroup
     private lateinit var btnBatterySettings: Button
     private lateinit var switchSoundDelay: Switch
+    private lateinit var switchIgnoreSilence: Switch
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,10 +65,16 @@ class MainActivity : Activity() {
         rgSoundType = findViewById(R.id.rg_sound_type)
         btnBatterySettings = findViewById(R.id.btn_battery_settings)
         switchSoundDelay = findViewById(R.id.switch_sound_delay)
+        switchIgnoreSilence = findViewById(R.id.switch_ignore_silence)
 
         // INTERRUPTOR DE RETARDO DE SONIDO
         switchSoundDelay.setOnCheckedChangeListener { _, isChecked -> 
             prefs.edit().putBoolean("sound_delay", isChecked).apply() 
+        }
+
+        // INTERRUPTOR PARA IGNORAR EL MODO SILENCIO/VIBRACION DEL MOVIL
+        switchIgnoreSilence.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean("ignore_silence", isChecked).apply()
         }
 
         // MEMORIA: Leemos el almacenamiento para restaurar el estado anterior de la app
@@ -331,6 +338,7 @@ class MainActivity : Activity() {
         switchLoop.isChecked = prefs.getBoolean("loop", true)
         switchVibrate.isChecked = prefs.getBoolean("vibrate", true)
         switchSoundDelay.isChecked = prefs.getBoolean("sound_delay", false)
+        switchIgnoreSilence.isChecked = prefs.getBoolean("ignore_silence", false)
 
         val pct = prefs.getInt("target_pct", 100)
         seekPercentage.progress = pct

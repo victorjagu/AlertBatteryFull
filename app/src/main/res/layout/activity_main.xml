@@ -99,7 +99,17 @@
             android:textSize="16sp"
             android:textColor="?android:attr/textColorPrimary"
             android:layout_marginBottom="24dp"/>
-                
+
+        <!-- Interruptor para ignorar silencio/vibración -->
+        <Switch
+            android:id="@+id/switch_ignore_silence"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/ui_ignore_silence"
+            android:textSize="16sp"
+            android:textColor="?android:attr/textColorPrimary"
+            android:layout_bottom="24dp"/>
+        
         <!-- Vibración -->
         <Switch
             android:id="@+id/switch_vibrate"

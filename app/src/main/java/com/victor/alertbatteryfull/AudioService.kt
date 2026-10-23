@@ -120,29 +120,29 @@ class AudioService : Service() {
                 .build()
             t.setAudioAttributes(audioAttributes)
 
+            // Creamos una función interna/reutilizable justo antes del escuchador para restaurar el sonido original
+            fun finalizarAvisoConRetraso() {
+                // Usamos postDelayed en lugar de post para dar un margen de 300ms al hardware
+                Handler(Looper.getMainLooper()).postDelayed({
+                    try {
+                        // Devolvemos el móvil al volumen que tenía el usuario antes del aviso
+                        am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
+                    } catch (e: Exception) {}
+                    isSpeaking = false
+                    stopSelf()
+                }, 300)
+            }
+
             // 6. ESCUCHADOR PROFESIONAL: El motor nos avisará en el milisegundo exacto en que termine la frase
             t.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) {}
-
+                
                 override fun onDone(utteranceId: String?) {
-                    Handler(Looper.getMainLooper()).post {
-                        try {
-                            // Devolvemos el móvil al volumen que tenía el usuario antes del aviso
-                            am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
-                        } catch (e: Exception) {}
-                        isSpeaking = false
-                        stopSelf()
-                    }
+                    finalizarAvisoConRetraso()
                 }
 
                 override fun onError(utteranceId: String?) {
-                    Handler(Looper.getMainLooper()).post {
-                        try {
-                            am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
-                        } catch (e: Exception) {}
-                        isSpeaking = false
-                        stopSelf()
-                    }
+                    finalizarAvisoConRetraso()
                 }
             })
 

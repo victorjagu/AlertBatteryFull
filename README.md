@@ -3,7 +3,7 @@
   <img src="app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png" width="256" alt="AppIcon">
 </p>
 
-<p align="center">A lightweight Android application designed to alert you when your battery reaches a specific charge level to protect battery health.</p>
+<p align="center">A lightweight Android application designed to alert you when your battery reaches a specific charge level to protect battery health</p>
 
 ## 🚀 Key Features
 

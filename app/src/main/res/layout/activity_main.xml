@@ -85,7 +85,7 @@
             android:id="@+id/switch_loop"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Repetir cada 10 segundos"
+            android:text="Repetir alerta cada 10 segundos"
             android:textSize="16sp"
             android:textColor="?android:attr/textColorPrimary"
             android:layout_marginBottom="24dp"/>
@@ -115,7 +115,7 @@
             android:id="@+id/switch_vibrate"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Activar Vibración"
+            android:text="Activar vibración (sobrescribe el valor del sistema)"
             android:textSize="16sp"
             android:textColor="?android:attr/textColorPrimary"
             android:layout_marginBottom="24dp"/>

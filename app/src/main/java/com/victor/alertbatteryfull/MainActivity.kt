@@ -183,25 +183,13 @@ class MainActivity : Activity() {
 
             // 2. Ejecutamos la prueba con los mensajes reales de la aplicación
             when (type) {
-                0 -> { // CASO DE ALERTA POR VOZ: Invoca al servicio especializado para evitar cortes y fugas de RAM
+                0, 1 -> { // Invoca al servicio de audio de forma unificada (0 = Voz, 1 = Beep)
                     try {
                         val serviceIntent = Intent(this, AudioService::class.java).apply {
-                            putExtra("sound_type", 0)       // Tipo 0: Reproducir Alerta por Voz
-                            putExtra("volume", currentVolume) // Volumen seleccionado en la barra
+                            putExtra("sound_type", type)             // Pasa directamente la variable 'type' ya calculada arriba (0 = Voz, 1 = Beep)
+                            putExtra("volume", currentVolume)        // Volumen seleccionado en la barra
                             putExtra("target_pct", currentTargetPct) // Porcentaje seleccionado en la barra
-                            putExtra("is_test", true)       // Marcamos que es una prueba manual
-                        }
-                        startService(serviceIntent)
-                    } catch (e: Exception) {}
-                }
-                
-                1 -> { // CASO DE BEEP: Invoca al servicio para reproducir el pitido unificado de hardware
-                    try {
-                        val serviceIntent = Intent(this, AudioService::class.java).apply {
-                            putExtra("sound_type", 1)       // Tipo 1: Reproducir el Beep físico
-                            putExtra("volume", currentVolume) // Volumen seleccionado en la barra
-                            putExtra("target_pct", currentTargetPct) // Porcentaje seleccionado en la barra
-                            putExtra("is_test", true)       // Marcamos que es una prueba manual
+                            putExtra("is_test", true)                // Marcamos que es una prueba manual
                         }
                         startService(serviceIntent)
                     } catch (e: Exception) {}
@@ -212,10 +200,12 @@ class MainActivity : Activity() {
                         // 1. Muestra la notificación nativa real de forma inmediata
                         NotificationHelper.showNotification(this, currentTargetPct)
                         
-                        // 2. Temporizador para cancelarla automáticamente a los 7 segundos exactos
-                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-                            nm.cancel(9911) // Usamos el ID 9911 fijado en el BatteryReceiver
+                        // 2. Usamos la ventana de la pantalla para cancelarla a los 7 segundos sin crear hilos en la RAM
+                        window.decorView.postDelayed({
+                            try {
+                                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                                nm.cancel(9911) // Usamos el ID 9911 fijado en el BatteryReceiver
+                            } catch (e: Exception) {}
                         }, 7000)
                     } catch (e: Exception) {}
                 }

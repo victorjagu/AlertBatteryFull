@@ -26,8 +26,11 @@ class MainActivity : Activity() {
     // HARDWARE: Gestor de energía del sistema operativo para verificar el ahorro de batería
     private val powerManager by lazy { getSystemService(Context.POWER_SERVICE) as PowerManager }
 
-    // Variable de control global
+    // Variable de control global para saber si el usuario salió a la pantalla de configuración manual
     private var isWaitingForSettings = false
+    
+    // CONTROL DE TOASTS: Bandera lógica para identificar si se aceptó un permiso en esta interacción exacta
+    private var isPermissionGrantedNow = false
     
     // COMPONENTES VISUALES: Declaración de los interruptores y selectores de la pantalla
     private lateinit var switchEnable: Switch
@@ -90,14 +93,17 @@ class MainActivity : Activity() {
             override fun onStartTrackingTouch(sb: SeekBar?) {}
             override fun onStopTrackingTouch(sb: SeekBar?) {}
         })
-        
-        // INTERRUPTOR PRINCIPAL: Activa la app y arranca el flujo unificado
+
+        // INTERRUPTOR PRINCIPAL: Activa la app y arranca el flujo unificado con reinicio de banderas
         switchEnable.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
+                // Reiniciamos el estado del permiso concedido antes de evaluar el hardware
+                isPermissionGrantedNow = false 
                 verificarYActivarPermisos()
             } else {
                 saveEnabledState(false)
                 toggleAppComponents(false)
+                // MENSAJE DE APAGADO
                 Toast.makeText(this, getString(R.string.toast_app_disabled, getString(R.string.app_name)), Toast.LENGTH_SHORT).show()
             }
         }
@@ -217,68 +223,74 @@ class MainActivity : Activity() {
 
     }
 
-    // MÉTODO UNIFICADO: Revisa ambos permisos y activa la aplicación
+    // MÉTODO UNIFICADO EVALUADO: Revisa la cadena de permisos requeridos uno a uno y gestiona los Toasts solicitados
     private fun verificarYActivarPermisos() {
-        val currentContext = this
         
-        // 1. COMPROBACIÓN DEL PERMISO DE NOTIFICACIONES (Android 13+)
+        // 1. COMPROBACIÓN DEL PERMISO DE NOTIFICACIONES (Requerido obligatoriamente en Android 13/14+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val permission = "android.permission.POST_NOTIFICATIONS"
             if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(arrayOf(permission), 101)
+                requestPermissions(arrayOf(permission), 101) // Lanza el cuadro emergente del sistema operativo
                 return
             }
         }
 
-        // 2. COMPROBACIÓN DE OPTIMIZACIÓN DE BATERÍA (Android 6+)
+        // 2. COMPROBACIÓN DE OPTIMIZACIÓN DE BATERÍA (Evita que el sistema destruya la app en segundo plano)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
                 val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
                     data = Uri.parse("package:$packageName")
                 }
                 try {
-                    startActivityForResult(intent, 102)
+                    isWaitingForSettings = true // Marcamos que salimos de la app hacia los ajustes
+                    startActivityForResult(intent, 102) // Envía al usuario a la ventana de exclusión del sistema
                 } catch (e: Exception) {
-                    showManualInstructionsDialog()
+                    showManualInstructionsDialog() // Rescate si el dispositivo bloquea el intent directo
                 }
                 return
             }
         }
 
-        // 3. PROCESO DE ACTIVACIÓN EXITOSA
+        // 3. PROCESO DE ACTIVACIÓN DE COMPONENTES INTERNOS TRAS SUPERAR LOS PERMISOS
         saveEnabledState(true)
         switchEnable.isChecked = true
         toggleAppComponents(true)
 
-        // CONTROL INTELIGENTE DE TOASTS:
-        val isInitialActivationDone = prefs.getBoolean("initial_activation_done", false)
-        if (!isInitialActivationDone) {
-            // Si es la primerísima vez que el usuario concede todo, le felicitamos por los permisos
-            Toast.makeText(currentContext, getString(R.string.toast_permissions_granted), Toast.LENGTH_SHORT).show()
-            prefs.edit().putBoolean("initial_activation_done", true).apply()
-        } else {
-            // Si los permisos ya estaban listos de antes, simplemente confirmamos el inicio normal
-            Toast.makeText(currentContext, getString(R.string.toast_app_started, getString(R.string.app_name)), Toast.LENGTH_SHORT).show()
+        // CONTROL EXIGIDO DE MENSAJES TOAST:
+        // Si el usuario acaba de otorgar un permiso en el paso anterior, mostramos el aviso intermedio de éxito
+        if (isPermissionGrantedNow) {
+            Toast.makeText(this, getString(R.string.toast_permissions_granted), Toast.LENGTH_SHORT).show()
         }
+        // Ejecución inmediata obligatoria (tanto si ya tenía permisos como si se acaban de dar en el momento)
+        Toast.makeText(this, getString(R.string.toast_app_started, getString(R.string.app_name)), Toast.LENGTH_SHORT).show()
     }
 
+    // RETORNO DE PETICIÓN EN TIEMPO REAL: Analiza la acción del usuario sobre el diálogo de notificaciones
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         if (requestCode == 101) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                verificarYActivarPermisos()
+                isPermissionGrantedNow = true // Almacena que el permiso fue aprobado en caliente
+                verificarYActivarPermisos() // Continúa evaluando el siguiente eslabón (Optimización de batería)
             } else {
                 bloquearSwitchPorFaltaDePermisos()
             }
         }
     }
 
+    // RETORNO DE ACTIVIDAD EXTERNA: Analiza el comportamiento tras volver del menú nativo de batería
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 102) {
-            showManualInstructionsDialog()
+            // Evaluamos si de regreso de la configuración externa, el permiso fue finalmente aprobado
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                isPermissionGrantedNow = true
+            }
+            isWaitingForSettings = false // Restablecemos el monitor general de salida
+            verificarYActivarPermisos() // Ejecuta el proceso de activación final
         }
     }
 
+    // CIERRE SEGURIZADO: Apaga el switch principal si se deniega algún requerimiento fundamental de funcionamiento
     private fun bloquearSwitchPorFaltaDePermisos() {
         saveEnabledState(false)
         switchEnable.isChecked = false
@@ -371,15 +383,17 @@ class MainActivity : Activity() {
             // EL CANDADO REAL: Solo comprobamos el éxito si el usuario estaba editando los ajustes y acaba de volver
             if (isIgnoring && !isAppSavedAsEnabled && isWaitingForSettings) {
                 isWaitingForSettings = false
+                isPermissionGrantedNow = true // Marcamos que el ajuste de optimización de batería manual tuvo éxito
+                
                 saveEnabledState(true)
                 switchEnable.isChecked = true
                 toggleAppComponents(true)
                 
-                val isInitialActivationDone = prefs.getBoolean("initial_activation_done", false)
-                if (!isInitialActivationDone) {
-                    Toast.makeText(this, getString(R.string.toast_app_started, getString(R.string.app_name)), Toast.LENGTH_SHORT).show()
-                    prefs.edit().putBoolean("initial_activation_done", true).apply()
+                // Dispara ordenadamente la doble cadena de Toasts requerida al volver del ajuste manual exitoso
+                if (isPermissionGrantedNow) {
+                    Toast.makeText(this, getString(R.string.toast_permissions_granted), Toast.LENGTH_SHORT).show()
                 }
+                Toast.makeText(this, getString(R.string.toast_app_started, getString(R.string.app_name)), Toast.LENGTH_SHORT).show()
             }
 
             // Si la app estaba activa en disco pero el usuario revocó el permiso por detrás en el móvil

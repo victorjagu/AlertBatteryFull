@@ -99,7 +99,17 @@
             android:textSize="16sp"
             android:textColor="?android:attr/textColorPrimary"
             android:layout_marginBottom="24dp"/>
-                
+
+        <!-- Interruptor para ignorar silencio/vibración -->
+        <Switch
+            android:id="@+id/switch_ignore_silence"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/ui_ignore_silence"
+            android:textSize="16sp"
+            android:textColor="?android:attr/textColorPrimary"
+            android:layout_marginBottom="24dp"/>
+        
         <!-- Vibración -->
         <Switch
             android:id="@+id/switch_vibrate"
@@ -126,12 +136,24 @@
             android:max="100"
             android:progress="80"
             android:layout_marginTop="8dp"
-            android:layout_marginBottom="32dp"
+            android:layout_marginBottom="8dp"
             android:splitTrack="false"
             android:background="?android:attr/selectableItemBackground"
             android:paddingStart="16dp"
             android:paddingEnd="16dp"/>
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Nota: El volumen se reproduce por el canal multimedia (ej. música), salvo que esté a cero.\nSiempre se ignora el modo silencio/vibración!"
+            android:textSize="12sp"
+            android:textStyle="italic"
+            android:textColor="?android:attr/textColorSecondary"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="24dp"
+            android:lineSpacingMultiplier="1.1"/>
+        
         <!-- Configuración de optimización de batería (Para Samsung, Xiaomi, etc) -->
         <Button
             android:id="@+id/btn_battery_settings"

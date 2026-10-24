@@ -6,8 +6,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.media.AudioManager
-import android.media.ToneGenerator
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -42,7 +40,7 @@ class MainActivity : Activity() {
     private lateinit var rgSoundType: RadioGroup
     private lateinit var btnBatterySettings: Button
     private lateinit var switchSoundDelay: Switch
-    private var tts: android.speech.tts.TextToSpeech? = null
+    private lateinit var switchIgnoreSilence: Switch
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,7 +52,7 @@ class MainActivity : Activity() {
         setContentView(R.layout.activity_main)
         
         // AUDIO DE NOTIFICACIONES: Sincroniza el slider físico del móvil con el canal de notificaciones para máxima suavidad
-        volumeControlStream = AudioManager.STREAM_NOTIFICATION
+        volumeControlStream = android.media.AudioManager.STREAM_NOTIFICATION
         
         // ENLACES: Conectamos las variables de Kotlin con los ID del plano visual XML
         switchEnable = findViewById(R.id.switch_enable)
@@ -67,17 +65,20 @@ class MainActivity : Activity() {
         rgSoundType = findViewById(R.id.rg_sound_type)
         btnBatterySettings = findViewById(R.id.btn_battery_settings)
         switchSoundDelay = findViewById(R.id.switch_sound_delay)
+        switchIgnoreSilence = findViewById(R.id.switch_ignore_silence)
 
         // INTERRUPTOR DE RETARDO DE SONIDO
         switchSoundDelay.setOnCheckedChangeListener { _, isChecked -> 
             prefs.edit().putBoolean("sound_delay", isChecked).apply() 
         }
 
+        // INTERRUPTOR PARA IGNORAR EL MODO SILENCIO/VIBRACION DEL MOVIL
+        switchIgnoreSilence.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean("ignore_silence", isChecked).apply()
+        }
+
         // MEMORIA: Leemos el almacenamiento para restaurar el estado anterior de la app
         loadPreferences()
-
-        // Arrancamos silenciosamente el sintetizador de voz para que funcione en las pruebas del usuario
-        tts = android.speech.tts.TextToSpeech(this) { status -> }
 
         // CONTROL DE PORCENTAJE OBJETIVO
         seekPercentage.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -118,9 +119,16 @@ class MainActivity : Activity() {
                     val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
                     
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        // Android 8+: Emitimos un pulso moderno estándar de 200 milisegundos a potencia normal
-                        val effect = android.os.VibrationEffect.createOneShot(200, android.os.VibrationEffect.DEFAULT_AMPLITUDE)
-                        vibrator.vibrate(effect)
+                        // Creamos los atributos de audio indicando que es una alarma de notificación
+                        val audioAttributes = android.media.AudioAttributes.Builder()
+                            .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_DELAYED)
+                            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build()
+                        // Enviamos el efecto de vibración junto con los atributos exigidos por Android 14
+                        vibrator.vibrate(
+                            android.os.VibrationEffect.createOneShot(200, android.os.VibrationEffect.DEFAULT_AMPLITUDE),
+                            audioAttributes
+                        )
                     } else {
                         // Versiones antiguas de rescate para asegurar retrocompatibilidad
                         @Suppress("DEPRECATION")
@@ -145,14 +153,17 @@ class MainActivity : Activity() {
                 // El usuario ha soltado la barra: calculamos el volumen final real
                 val currentProgress = sb?.progress ?: 80
                 try {
-                    // Inicializamos el motor de sonido con el volumen exacto seleccionado al soltar
-                    val toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, currentProgress)
-                    // Emitimos un único Beep limpio de 150ms para verificar la potencia real
-                    toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
-                    // Liberamos el hardware inmediatamente para ahorrar memoria RAM
-                    sb?.postDelayed({ toneGenerator.release() }, 200)
+                    // Creamos la orden directa para encender nuestro servicio acústico especializado
+                    val serviceIntent = Intent(this@MainActivity, AudioService::class.java).apply {
+                        putExtra("sound_type", 1)               // Tipo 1: Reproducir el Beep físico de hardware
+                        putExtra("volume", currentProgress)   // Le pasamos el volumen seleccionado por el usuario
+                        putExtra("target_pct", seekPercentage.progress) // Porcentaje actual de la interfaz
+                        putExtra("is_test", true)           // Marcamos que es solo una prueba manual desde la pantalla
+                    }
+                    // Arrancamos el servicio ligero de forma nativa
+                    startService(serviceIntent)
                 } catch (e: Exception) {
-                    // Salvaguarda por si el hardware del chip de audio está ocupado
+                    // Salvaguarda por si el sistema operativo está ocupado
                 }
             }
         })
@@ -172,27 +183,27 @@ class MainActivity : Activity() {
 
             // 2. Ejecutamos la prueba con los mensajes reales de la aplicación
             when (type) {
-                0 -> { // CASO DE ALERTA POR VOZ: Reproduce la frase exacta que dirá el vigilante en segundo plano
+                0 -> { // CASO DE ALERTA POR VOZ: Invoca al servicio especializado para evitar cortes y fugas de RAM
                     try {
-                        // Construimos de forma idéntica la frase real usando el porcentaje seleccionado
-                        val realVoiceMessage = if (currentTargetPct == 100) {
-                            getString(R.string.msg_voice_full)
-                        } else {
-                            getString(R.string.msg_voice_custom, currentTargetPct)
+                        val serviceIntent = Intent(this, AudioService::class.java).apply {
+                            putExtra("sound_type", 0)       // Tipo 0: Reproducir Alerta por Voz
+                            putExtra("volume", currentVolume) // Volumen seleccionado en la barra
+                            putExtra("target_pct", currentTargetPct) // Porcentaje seleccionado en la barra
+                            putExtra("is_test", true)       // Marcamos que es una prueba manual
                         }
-                        
-                        val params = Bundle().apply { 
-                            putInt(android.speech.tts.TextToSpeech.Engine.KEY_PARAM_STREAM, android.media.AudioManager.STREAM_NOTIFICATION) 
-                        }
-                        tts?.speak(realVoiceMessage, android.speech.tts.TextToSpeech.QUEUE_FLUSH, params, "PruebaTTS")
+                        startService(serviceIntent)
                     } catch (e: Exception) {}
                 }
                 
-                1 -> { // CASO DE BEEP: Sonido físico limpio al volumen de la barra
+                1 -> { // CASO DE BEEP: Invoca al servicio para reproducir el pitido unificado de hardware
                     try {
-                        val toneGenerator = android.media.ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION, currentVolume)
-                        toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 150)
-                        seekVolume.postDelayed({ toneGenerator.release() }, 200)
+                        val serviceIntent = Intent(this, AudioService::class.java).apply {
+                            putExtra("sound_type", 1)       // Tipo 1: Reproducir el Beep físico
+                            putExtra("volume", currentVolume) // Volumen seleccionado en la barra
+                            putExtra("target_pct", currentTargetPct) // Porcentaje seleccionado en la barra
+                            putExtra("is_test", true)       // Marcamos que es una prueba manual
+                        }
+                        startService(serviceIntent)
                     } catch (e: Exception) {}
                 }
                 
@@ -327,6 +338,7 @@ class MainActivity : Activity() {
         switchLoop.isChecked = prefs.getBoolean("loop", true)
         switchVibrate.isChecked = prefs.getBoolean("vibrate", true)
         switchSoundDelay.isChecked = prefs.getBoolean("sound_delay", false)
+        switchIgnoreSilence.isChecked = prefs.getBoolean("ignore_silence", false)
 
         val pct = prefs.getInt("target_pct", 100)
         seekPercentage.progress = pct

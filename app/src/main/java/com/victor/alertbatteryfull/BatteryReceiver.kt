@@ -14,9 +14,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Vibrator
 import android.os.VibratorManager
-import android.speech.tts.TextToSpeech
 import androidx.core.app.NotificationCompat
-import java.util.Locale
 
 class BatteryReceiver : BroadcastReceiver() {
 
@@ -27,8 +25,8 @@ class BatteryReceiver : BroadcastReceiver() {
         // Hilos ligeros y variables estáticas para controlar los bucles en memoria sin servicios pesados
         private var loopHandler: Handler? = null
         private var loopRunnable: Runnable? = null
-        private var tts: TextToSpeech? = null
         private var isAlertActive = false
+        private var monitoringHandler: Handler? = null
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -89,11 +87,10 @@ class BatteryReceiver : BroadcastReceiver() {
                     triggerAlert(context, targetPct)
                 }
             } else {
-                // Si el cargador se conectó pero aún no llega al porcentaje, y estábamos en modo personalizado,
-                // nos aseguramos de registrar dinámicamente el receptor paso a paso sólo mientras dure la carga.
+                // Si se conecta el cargador y el límite es personalizado (<100),
+                // iniciamos el chequeo interno ligero y seguro de Android 14
                 if (action == Intent.ACTION_POWER_CONNECTED && targetPct < 100) {
-                    val filter = android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-                    context.applicationContext.registerReceiver(this, filter)
+                    startBatteryMonitorLoop(context, targetPct)
                 }
             }
         }
@@ -101,96 +98,49 @@ class BatteryReceiver : BroadcastReceiver() {
     
     private fun triggerAlert(context: Context, targetPct: Int) {
         val prefs = context.getSharedPreferences("prefs_battery", Context.MODE_PRIVATE)
-        val soundType = prefs.getInt("sound_type", 0) // 0 = Voz, 1 = Beep, 2 = Silencioso
-        val useLoop = prefs.getBoolean("loop", true)
-        val useVibrate = prefs.getBoolean("vibrate", true)
-        val targetVolume = prefs.getInt("volume", 80)
-        val useSoundDelay = prefs.getBoolean("sound_delay", false)
+        val soundType = prefs.getInt("sound_type", 0)     // 0 = Voz, 1 = Beep, 2 = Silencioso
+        val useLoop = prefs.getBoolean("loop", true)       // Saber si el usuario quiere repetición
+        val useVibrate = prefs.getBoolean("vibrate", true) // Saber si quiere vibración
+        val targetVolume = prefs.getInt("volume", 80)     // El volumen elegido en la barra
+        val useSoundDelay = prefs.getBoolean("sound_delay", false) // El retardo de sonido de 1 minuto
+        val ignoreSilence = prefs.getBoolean("ignore_silence", false)    //ignorar el modo silencio/vibracion del movil
 
-        // 1. Mostrar notificación nativa en el móvil al instante (para el Smartwatch o por si el usuario tiene el movil en la mano encendido)
+        // 1. Pintamos de inmediato la notificación visual nativa y eficiente que optimizamos
         NotificationHelper.showNotification(context, targetPct)
 
-        // Variables de control de hilos independientes
+        // 2. Preparamos el temporizador ligero en memoria de la app
         loopHandler = Handler(Looper.getMainLooper())
-        var isAudioAllowedToPlay = !useSoundDelay // Si no hay retardo, el audio puede sonar desde el segundo cero
+        var isAudioAllowedToPlay = !useSoundDelay
 
-        // 2. BUCLE PRINCIPAL DE VIBRACIÓN (Se ejecuta de forma continua cada 10 segundos)
         loopRunnable = object : Runnable {
             override fun run() {
-                // CONDICIÓN 1: La vibración depende exclusivamente del ajuste de la app
-                if (useVibrate) {
-                    executeVibration(context)
-                }
+                // Si el usuario activó la vibración, ejecutamos el latido de hardware de forma atómica
+                if (useVibrate) executeVibration(context)
 
-                // CONDICIÓN 2: El audio solo suena si ya ha pasado el tiempo de cortesía o no estaba activo
+                // Si el tipo de sonido NO es silencioso (tipo 2) y la llave de tiempo permite sonar
                 if (soundType != 2 && isAudioAllowedToPlay) {
-                    val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                    if (am.ringerMode == AudioManager.RINGER_MODE_NORMAL) {
-                        if (soundType == 0) {
-                            playVoiceAlert(context, targetPct, targetVolume)
-                        } else if (soundType == 1) {
-                            playBeepAlert(targetVolume)
-                        }
-                    }
+                    // Respetamos estrictamente si el móvil general está con el ringer en modo normal
+                    lanzarAudioService(context, soundType, targetVolume, targetPct)
                 }
 
-                // Planificar la siguiente repetición del bucle a los 10 segundos exactos
+                // Si el bucle sigue activo, volvemos a programar esta comprobación en 10 segundos
                 if (useLoop && isAlertActive) {
                     loopHandler?.postDelayed(this, 10000)
                 }
             }
         }
 
-        // Arrancamos el bucle físico (vibración inmediata)
+        // Arrancamos el bucle de la alarma de inmediato
         loopHandler?.post(loopRunnable!!)
 
-        // 3. HILO DE DESBLOQUEO DEL AUDIO (Esperará 1 minuto si el retardo está activo)
+        // Lógica del interruptor de retardo (esperar 1 minuto antes de dar paso al sonido)
         if (soundType != 2 && useSoundDelay) {
             loopHandler?.postDelayed({
                 if (isAlertActive) {
                     isAudioAllowedToPlay = true
-                    // Forzamos una reproducción de audio inmediata al cumplir el minuto, 
-                    // ya que el bucle principal podría estar en mitad de una cuenta atrás de 10s
-                    val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                    if (am.ringerMode == AudioManager.RINGER_MODE_NORMAL) {
-                        if (soundType == 0) playVoiceAlert(context, targetPct, targetVolume)
-                        else if (soundType == 1) playBeepAlert(targetVolume)
-                    }
+                    lanzarAudioService(context, soundType, targetVolume, targetPct)
                 }
-            }, 60000) // 1 minuto de retardo estricto
-        }
-    }
-
-    private fun playVoiceAlert(context: Context, pct: Int, volume: Int) {
-        // Recuperamos de forma dinámica el mensaje del diccionario según el porcentaje real
-        val message = if (pct == 100) {
-            context.getString(R.string.msg_voice_full)
-        } else {
-            context.getString(R.string.msg_voice_custom, pct)
-        }
-
-        // Inicialización ligera y al vuelo del motor TextToSpeech nativo de Google
-        tts = TextToSpeech(context.applicationContext) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                tts?.let { t ->
-                    t.language = Locale.getDefault()
-                    // Configuramos el volumen del flujo de música/notificación de forma segura
-                    val bundle = android.os.Bundle()
-                    bundle.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, volume / 100f)
-                    t.speak(message, TextToSpeech.QUEUE_FLUSH, bundle, "BatteryAlertID")
-                }
-            }
-        }
-    }
-
-    private fun playBeepAlert(volume: Int) {
-        try {
-            // Usamos el ToneGenerator de hardware nativo para generar un Beep puro sin cargar archivos pesados en RAM
-            // Mapeamos el volumen al rango oficial (0-100)
-            val toneGen = ToneGenerator(AudioManager.STREAM_NOTIFICATION, volume)
-            toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 250) // Beep de 250 milisegundos
-        } catch (e: Exception) {
-            // Salvaguarda si el hardware de sonido está ocupado
+            }, 60000) // Retardo de 60 segundos exactos
         }
     }
 
@@ -211,9 +161,58 @@ class BatteryReceiver : BroadcastReceiver() {
         loopHandler?.removeCallbacks(loopRunnable ?: return)
         loopHandler = null
         loopRunnable = null
-        // Destruir por completo el motor de voz de la RAM
-        tts?.stop()
-        tts?.shutdown()
-        tts = null
+        // Detener el chequeo silencioso del startBatteryMonitorLoop, si existiera
+        monitoringHandler = null 
+    }
+
+    private fun startBatteryMonitorLoop(context: Context, targetPct: Int) {
+        if (monitoringHandler != null) return // Si ya está corriendo, no lo duplicamos
+        
+        monitoringHandler = Handler(Looper.getMainLooper())
+        val checkRunnable = object : Runnable {
+            override fun run() {
+                val prefs = context.getSharedPreferences("prefs_battery", Context.MODE_PRIVATE)
+                val isEnabled = prefs.getBoolean("enabled", false)
+                
+                // Si la app se desactivó o ya saltó la alarma, paramos el temporizador
+                if (!isEnabled || isAlertActive) {
+                    monitoringHandler = null
+                    return
+                }
+
+                // Consultamos directamente al hardware usando el BatteryManager nativo
+                val bm = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+                val currentPct = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+
+                if (currentPct >= targetPct) {
+                    isAlertActive = true
+                    triggerAlert(context, targetPct)
+                    monitoringHandler = null // Alarma activada, apagamos este chequeo
+                } else {
+                    // Si no ha llegado al porcentaje, vuelve a consultar en 60 segundos
+                    monitoringHandler?.postDelayed(this, 60000)
+                }
+            }
+        }
+        monitoringHandler?.post(checkRunnable)
+    }
+
+    private fun lanzarAudioService(context: Context, soundType: Int, targetVolume: Int, targetPct: Int) {
+        val prefs = context.getSharedPreferences("prefs_battery", Context.MODE_PRIVATE)
+        val ignoreSilence = prefs.getBoolean("ignore_silence", false)
+        val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+        if (ignoreSilence || am.ringerMode == AudioManager.RINGER_MODE_NORMAL) {
+            try {
+                // NUEVO: Lanzamos la orden relámpago hacia nuestro AudioService especialista
+                val serviceIntent = Intent(context, AudioService::class.java).apply {
+                    putExtra("sound_type", soundType)   // Le pasamos el tipo (Voz o Beep)
+                    putExtra("volume", targetVolume)     // Le pasamos el volumen de la barra
+                    putExtra("target_pct", targetPct)   // El porcentaje real de carga
+                    putExtra("is_test", false)          // Indicamos que es la alarma real, NO una prueba
+                }
+                context.startService(serviceIntent)
+            } catch (e: Exception) {}
+        }
     }
 }

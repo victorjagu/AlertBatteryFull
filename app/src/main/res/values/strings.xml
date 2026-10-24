@@ -6,6 +6,7 @@
     <string name="ui_battery_target">Porcentaje objetivo: %1$d%%</string>
     <string name="ui_volume_alert">Volumen del aviso: %1$d%%</string>
     <string name="ui_sound_delay">Retardo de 1 min antes de sonar (voz o beep)</string>
+    <string name="ui_ignore_silence">Sonar incluso si el móvil está en silencio/vibración</string>
     
     <!-- Diálogos de Permisos y Flujo de Configuración -->
     <string name="dialog_permission_required_title">Permiso Requerido</string>

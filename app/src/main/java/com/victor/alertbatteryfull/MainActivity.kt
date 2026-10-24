@@ -313,25 +313,27 @@ class MainActivity : Activity() {
     private fun savePref(key: String, value: Boolean) = prefs.edit().putBoolean(key, value).apply()
     private fun saveEnabledState(state: Boolean) = savePref("enabled", state)
 
-    private fun loadPreferences() with(prefs) {
-        switchEnable.isChecked = getBoolean("enabled", false)
-        switchLoop.isChecked = getBoolean("loop", true)
-        switchVibrate.isChecked = getBoolean("vibrate", true)
-        switchSoundDelay.isChecked = getBoolean("sound_delay", false)
-        switchIgnoreSilence.isChecked = getBoolean("ignore_silence", false)
-
-        val pct = getInt("target_pct", 100)
-        seekPercentage.progress = pct
-        tvPercentageLabel.text = getString(R.string.ui_battery_target, pct)
-        
-        val vol = getInt("volume", 80)
-        seekVolume.progress = vol
-        tvVolumeLabel.text = getString(R.string.ui_volume_alert, vol)
-        
-        when (getInt("sound_type", 0)) {
-            1 -> rgSoundType.check(R.id.rb_beep)
-            2 -> rgSoundType.check(R.id.rb_silent)
-            else -> rgSoundType.check(R.id.rb_voice)
+    private fun loadPreferences() {
+        with(prefs) {
+            switchEnable.isChecked = getBoolean("enabled", false)
+            switchLoop.isChecked = getBoolean("loop", true)
+            switchVibrate.isChecked = getBoolean("vibrate", true)
+            switchSoundDelay.isChecked = getBoolean("sound_delay", false)
+            switchIgnoreSilence.isChecked = getBoolean("ignore_silence", false)
+    
+            val pct = getInt("target_pct", 100)
+            seekPercentage.progress = pct
+            tvPercentageLabel.text = getString(R.string.ui_battery_target, pct)
+            
+            val vol = getInt("volume", 80)
+            seekVolume.progress = vol
+            tvVolumeLabel.text = getString(R.string.ui_volume_alert, vol)
+            
+            rgSoundType.check(when (getInt("sound_type", 0)) {
+                1 -> R.id.rb_beep
+                2 -> R.id.rb_silent
+                else -> R.id.rb_voice
+            })
         }
     }
 

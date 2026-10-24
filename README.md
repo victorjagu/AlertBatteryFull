@@ -3,24 +3,18 @@
   <img src="app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png" width="256" alt="AppIcon">
 </p>
 
-<p align="center">A lightweight, efficient, and customizable application designed for mobile Android systems. Its main purpose is to alert the user when the battery is charged. Full battery level can be determine by the user.</p>
+<p align="center">A lightweight Android application designed to alert you when your battery reaches a specific charge level to protect battery health.</p>
 
 ## 🚀 Key Features
 
-* **Master Switch:** Easily turn the entire monitoring service ON or OFF with a single tap from the dynamic interface header.
-* **Full Battery Alert:** Triggers when reaching your custom percentage (e.g., 80% or 100%) **only while the device is charging**. The notification automatically dismisses itself when unplugging the charger.
-* **Privacy & Local Persistence:** All user settings are saved 100% locally using secure internal device storage (`SharedPreferences`).
+* **Master Switch:** Toggle the monitoring service ON/OFF easily.
+* **Full Battery Alert:** Triggers at your custom percentage (e.g., 80% or 100%) **only while charging**.
+* **Auto-Dismiss:** Dismisses notifications automatically upon unplugging.
+* **Privacy & Local Persistence:** Settings are saved locally using `SharedPreferences`.
 
 ## 🛠 Advanced Customization Options
 
-Each alert type features independent multimedia channels that can be toggled at will:
-* **Visual Message:** Customizable notifications that travel natively to your **smartwatch** via the Android system.
-* **Audio Beep:** Sound alerts with independent volume slider control.
-* **Voice Text-to-Speech (TTS):** Customizable voice alerts with independent volume control.
-* **Haptic Vibration:** Enabled or disabled according to your preference.
-
-## 🧠 Intelligent Filters & Conditions
-
+* **Visual, Audio (Beep/TTS), & Haptic Feedback:** Customizable notification channels with independent controls.
 * **Respect System State:** Option to keep the app muted on Silent/Vibrate modes.
 * **Background Resilience:** Includes battery optimization exclusion and `BootReceiver` for automatic restart after reboot.
 

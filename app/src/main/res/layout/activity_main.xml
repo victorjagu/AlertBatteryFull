@@ -26,7 +26,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:text="Alerta Batería Cargada"
+            android:text="Alerta de Batería Cargada"
             android:textSize="28sp"
             android:textStyle="bold"
             android:textColor="?android:attr/textColorPrimary"
@@ -37,7 +37,7 @@
             android:id="@+id/switch_enable"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Activar Alerta"
+            android:text="¿Activar aplicación?"
             android:textSize="18sp"
             android:textColor="?android:attr/textColorPrimary"
             android:layout_marginBottom="24dp"/>
@@ -64,7 +64,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Tipo de Sonido"
+            android:text="Tipo de aviso:"
             android:textSize="16sp"
             android:textStyle="bold"
             android:textColor="?android:attr/textColorPrimary"

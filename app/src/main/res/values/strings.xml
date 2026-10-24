@@ -24,8 +24,8 @@
     <string name="toast_app_disabled">¡%1$s desactivada!</string>
     
     <!-- Canal de la Notificación del Sistema -->
-    <string name="channel_notif_name">Alertas de Batería</string>
-    <string name="channel_notif_description">Avisos de carga completa optimizados</string>
+    <string name="channel_notif_name">Alertas de batería</string>
+    <string name="channel_notif_description">Notificación de carga completa</string>
     
     <!-- Mensajes de Alerta (Voz y Notificación) -->
     <string name="msg_voice_full">Batería cargada. Desconéctame, por favor.</string>

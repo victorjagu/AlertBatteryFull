@@ -34,6 +34,7 @@ class AudioService : Service() {
                     val targetVolume = intent.getIntExtra("volume", 80)
                     val targetPct = intent.getIntExtra("target_pct", 100)
                     val isTest = intent.getBooleanExtra("is_test", false)
+                    val ignoreSilent = intent.getBooleanExtra("ignore_silent", false)   
                     executeVoiceAlert(am, originalVolume, targetVolume, targetPct, isTest)
                     pendingIntent = null
                 }
@@ -49,7 +50,8 @@ class AudioService : Service() {
             val targetVolume = intent.getIntExtra("volume", 80)       // Volumen elegido en nuestra barra
             val targetPct = intent.getIntExtra("target_pct", 100)     // Porcentaje actual de la alerta
             val isTest = intent.getBooleanExtra("is_test", false)     // Saber si es solo una prueba manual
-
+            val ignoreSilent = intent.getBooleanExtra("ignore_silent", false)    // Saber si hay que ignorar modo silencio/vibración
+            
             // 3. Accedemos al gestor de audio nativo del teléfono
             val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
             // 4. Consultamos el volumen multimedia (música) actual del dispositivo del usuario
@@ -57,7 +59,7 @@ class AudioService : Service() {
 
             // Si el usuario tiene el volumen multimedia del móvil a cero (modo noche),
             // respetamos el silencio absoluto, no reproducimos acústica y detenemos el servicio de inmediato.
-            if (originalVolume == 0) {
+            if (originalVolume == 0 || !ignoreSilent) {
                 stopSelf() // El servicio se auto-destruye y se borra de la RAM al instante
                 return START_NOT_STICKY
             }

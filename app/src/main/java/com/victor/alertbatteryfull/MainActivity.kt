@@ -252,19 +252,23 @@ class MainActivity : Activity() {
         }
 
         // 3. PROCESO DE ACTIVACIÓN DE COMPONENTES INTERNOS TRAS SUPERAR LOS PERMISOS
+        confirmarActivacionExitosa()
+    }
+        
+    // Función centralizada única para guardar el estado y emitir los Toasts ordenados sin duplicar código
+    private fun confirmarActivacionExitosa() {
         saveEnabledState(true)
         switchEnable.isChecked = true
         toggleAppComponents(true)
 
-        // CONTROL EXIGIDO DE MENSAJES TOAST:
-        // Si el usuario acaba de otorgar un permiso en el paso anterior, mostramos el aviso intermedio de éxito
-        if (isPermissionGrantedNow) {
+        // Si el usuario acaba de otorgar un permiso en esta interacción, mostramos el aviso intermedio de éxito
+        if (flagPermisoConcedidoAhora) {
             Toast.makeText(this, getString(R.string.toast_permissions_granted), Toast.LENGTH_SHORT).show()
         }
-        // Ejecución inmediata obligatoria (tanto si ya tenía permisos como si se acaban de dar en el momento)
+        // Indicamos si app encendida o apagada
         Toast.makeText(this, getString(R.string.toast_app_started, getString(R.string.app_name)), Toast.LENGTH_SHORT).show()
     }
-
+    
     // RETORNO DE PETICIÓN EN TIEMPO REAL: Analiza la acción del usuario sobre el diálogo de notificaciones
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         if (requestCode == 101) {
@@ -385,15 +389,8 @@ class MainActivity : Activity() {
                 isWaitingForSettings = false
                 isPermissionGrantedNow = true // Marcamos que el ajuste de optimización de batería manual tuvo éxito
                 
-                saveEnabledState(true)
-                switchEnable.isChecked = true
-                toggleAppComponents(true)
-                
-                // Dispara ordenadamente la doble cadena de Toasts requerida al volver del ajuste manual exitoso
-                if (isPermissionGrantedNow) {
-                    Toast.makeText(this, getString(R.string.toast_permissions_granted), Toast.LENGTH_SHORT).show()
-                }
-                Toast.makeText(this, getString(R.string.toast_app_started, getString(R.string.app_name)), Toast.LENGTH_SHORT).show()
+                // Llamamos a la función centralizada informando del resultado
+                confirmarActivacionExitosa()
             }
 
             // Si la app estaba activa en disco pero el usuario revocó el permiso por detrás en el móvil

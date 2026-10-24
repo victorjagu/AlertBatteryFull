@@ -145,7 +145,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Nota: El volumen se reproduce por el canal multimedia (ej. música), salvo que esté a cero.\nSiempre se ignora el modo silencio/vibración!"
+            android:text="Nota: El volumen se reproduce por el canal multimedia (ej. música), salvo que esté a cero."
             android:textSize="12sp"
             android:textStyle="italic"
             android:textColor="?android:attr/textColorSecondary"

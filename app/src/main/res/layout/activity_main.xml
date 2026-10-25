@@ -115,7 +115,7 @@
             android:id="@+id/switch_vibrate"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Activar vibración (sobrescribe el valor del sistema)"
+            android:text="Activar vibración"
             android:textSize="16sp"
             android:textColor="?android:attr/textColorPrimary"
             android:layout_marginBottom="24dp"/>

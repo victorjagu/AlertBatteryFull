@@ -120,39 +120,59 @@
             android:textColor="?android:attr/textColorPrimary"
             android:layout_marginBottom="24dp"/>
 
-        <!-- Ajuste de Volumen -->
-        <TextView
-            android:id="@+id/tv_volume_label"
+        <!-- Elegir entre volumen personalizado o del sistema -->
+        <Switch
+            android:id="@+id/switch_custom_volume"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Volumen del aviso: 80%"
+            android:text="Ignorar volumen del sistema, fijando uno personalizado:"
             android:textSize="16sp"
-            android:textColor="?android:attr/textColorPrimary"/>
+            android:textColor="?android:attr/textColorPrimary"
+            android:checked="false"
+            android:layout_marginBottom="16dp"/>
 
-        <SeekBar
-            android:id="@+id/seek_volume"
+        <!-- CONTENEDOR DE VOLUMEN: Agrupa la barra y la nota para ocultarlas juntas -->
+        <LinearLayout
+            android:id="@+id/layout_volume_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:max="100"
-            android:progress="80"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="8dp"
-            android:splitTrack="false"
-            android:background="?android:attr/selectableItemBackground"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"/>
+            android:orientation="vertical">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Nota: El volumen se reproduce por el canal multimedia (ej. música), salvo que esté a cero."
-            android:textSize="12sp"
-            android:textStyle="italic"
-            android:textColor="?android:attr/textColorSecondary"
-            android:layout_marginStart="16dp"
-            android:layout_marginEnd="16dp"
-            android:layout_marginBottom="24dp"
-            android:lineSpacingMultiplier="1.1"/>
+            <!-- Ajuste de Volumen -->
+            <TextView
+                android:id="@+id/tv_volume_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Volumen del aviso: 80%"
+                android:textSize="16sp"
+                android:textColor="?android:attr/textColorPrimary"/>
+
+            <SeekBar
+                android:id="@+id/seek_volume"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="100"
+                android:progress="80"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="8dp"
+                android:splitTrack="false"
+                android:background="?android:attr/selectableItemBackground"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Nota: El volumen se reproduce por el canal multimedia (ej. música), salvo que esté a cero."
+                android:textSize="12sp"
+                android:textStyle="italic"
+                android:textColor="?android:attr/textColorSecondary"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"
+                android:layout_marginBottom="24dp"
+                android:lineSpacingMultiplier="1.1"/>
+                
+        </LinearLayout>
         
         <!-- Configuración de optimización de batería (Para Samsung, Xiaomi, etc) -->
         <Button

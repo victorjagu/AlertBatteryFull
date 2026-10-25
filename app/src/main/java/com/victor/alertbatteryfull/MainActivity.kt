@@ -48,6 +48,7 @@ class MainActivity : Activity() {
     private val tvPercentageLabel by lazy { findViewById<TextView>(R.id.tv_percentage_label) }
     private val tvVolumeLabel by lazy { findViewById<TextView>(R.id.tv_volume_label) }
     private val rgSoundType by lazy { findViewById<RadioGroup>(R.id.rg_sound_type) }
+    private val rgAudioChannel by lazy { findViewById<RadioGroup>(R.id.rg_audio_channel)}
     private val btnBatterySettings by lazy { findViewById<Button>(R.id.btn_battery_settings) }
     private val switchSoundDelay by lazy { findViewById<Switch>(R.id.switch_sound_delay) }
     private val switchIgnoreSilence by lazy { findViewById<Switch>(R.id.switch_ignore_silence) }
@@ -99,6 +100,19 @@ class MainActivity : Activity() {
                 savePref("target_pct", finalPct)
             }
         })
+
+        // SELECTOR DEL CANAL DE AUDIO
+        rgAudioChannel.setOnCheckedChangeListener { _, checkedId ->
+            val channel = if (
+                checkedId == R.id.rb_channel_notification
+            ) {
+                1
+            } else {
+                0
+            }
+
+            savePref("audio_channel", channel)
+        }
 
         // INTERRUPTOR PRINCIPAL: Activa la app y arranca el flujo unificado
         switchEnable.setOnCheckedChangeListener { _, isChecked ->
@@ -352,6 +366,15 @@ class MainActivity : Activity() {
                 2 -> R.id.rb_silent
                 else -> R.id.rb_voice
             })
+
+            // La opción de canal multimedia será la predeterminada
+            rgAudioChannel.check(
+                if (getInt("audio_channel", 0) == 1) {
+                    R.id.rb_channel_notification
+                } else {
+                    R.id.rb_channel_media
+                }
+            )
         }
     }
 

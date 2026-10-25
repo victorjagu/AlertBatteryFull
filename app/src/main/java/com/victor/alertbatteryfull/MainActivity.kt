@@ -141,7 +141,6 @@ class MainActivity : Activity() {
         }
 
         // DESLIZADOR DE VOLUMEN CON EMISIÓN DE BEEP DE PRUEBA
-        // DESLIZADOR DE VOLUMEN OPTIMIZADO (Ahorro de CPU y batería)
         seekVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
                 // Operación ligera: solo cambia el texto visual mientras mueves el dedo
@@ -159,7 +158,8 @@ class MainActivity : Activity() {
                 val serviceIntent = Intent(this@MainActivity, AudioService::class.java).apply {
                     putExtra("sound_type", 1)               
                     putExtra("volume", currentProgress)   
-                    putExtra("target_pct", seekPercentage.progress)           
+                    putExtra("target_pct", seekPercentage.progress)
+                    putExtra("custom_volume", switchCustomVolume.isChecked)
                 }
                 startService(serviceIntent)
             }
@@ -184,6 +184,7 @@ class MainActivity : Activity() {
                     putExtra("sound_type", type)             // Volumen seleccionado en la barra
                     putExtra("volume", currentVolume)        // Volumen seleccionado en la barra
                     putExtra("target_pct", currentTargetPct) // Porcentaje seleccionado en la barra
+                    putExtra("custom_volume", switchCustomVolume.isChecked)    //Decimos si usar volumen del sistema o el especificado por el usuario
                 }
                 startService(serviceIntent)
                 

@@ -5,16 +5,13 @@ import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.media.AudioAttributes
 import android.media.AudioManager
-import android.media.ToneGenerator
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.Vibrator
 import android.os.VibratorManager
-import androidx.core.app.NotificationCompat
 
 class BatteryReceiver : BroadcastReceiver() {
 
@@ -109,8 +106,12 @@ class BatteryReceiver : BroadcastReceiver() {
         NotificationHelper.showNotification(context, targetPct)
 
         // 2. Preparamos el temporizador ligero en memoria de la app
-        loopHandler = Handler(Looper.getMainLooper())
-        var isAudioAllowedToPlay = !useSoundDelay
+        if (loopHandler == null) {
+            loopHandler = Handler(Looper.getMainLooper())
+        }
+        loopHandler?.removeCallbacksAndMessages(null)
+        
+        var isAudioAllowedToPlay = ! useSoundDelay
 
         loopRunnable = object : Runnable {
             override fun run() {
@@ -157,18 +158,23 @@ class BatteryReceiver : BroadcastReceiver() {
 
     private fun stopAlerts() {
         isAlertActive = false
-        // Detener hilos de tiempo
-        loopHandler?.removeCallbacks(loopRunnable ?: return)
+        // Detener hilos de tiempo de forma absoluta
+        loopHandler?.removeCallbacksAndMessages(null)
         loopHandler = null
         loopRunnable = null
         // Detener el chequeo silencioso del startBatteryMonitorLoop, si existiera
-        monitoringHandler = null 
+        monitoringHandler?.removeCallbacksAndMessages(null)
+        monitoringHandler = null
     }
 
     private fun startBatteryMonitorLoop(context: Context, targetPct: Int) {
-        if (monitoringHandler != null) return // Si ya está corriendo, no lo duplicamos
-        
-        monitoringHandler = Handler(Looper.getMainLooper())
+        // Si no existe el handler, lo creamos una sola vez
+        if (monitoringHandler == null) {
+            monitoringHandler = Handler(Looper.getMainLooper())
+        }
+        // Cancelamos cualquier tarea programada vieja para que no se dupliquen hilos
+        monitoringHandler?.removeCallbacksAndMessages(null)
+    
         val checkRunnable = object : Runnable {
             override fun run() {
                 val prefs = context.getSharedPreferences("prefs_battery", Context.MODE_PRIVATE)
@@ -176,6 +182,7 @@ class BatteryReceiver : BroadcastReceiver() {
                 
                 // Si la app se desactivó o ya saltó la alarma, paramos el temporizador
                 if (!isEnabled || isAlertActive) {
+                    monitoringHandler?.removeCallbacksAndMessages(null)
                     monitoringHandler = null
                     return
                 }
@@ -187,6 +194,7 @@ class BatteryReceiver : BroadcastReceiver() {
                 if (currentPct >= targetPct) {
                     isAlertActive = true
                     triggerAlert(context, targetPct)
+                    monitoringHandler?.removeCallbacksAndMessages(null)
                     monitoringHandler = null // Alarma activada, apagamos este chequeo
                 } else {
                     // Si no ha llegado al porcentaje, vuelve a consultar en 60 segundos

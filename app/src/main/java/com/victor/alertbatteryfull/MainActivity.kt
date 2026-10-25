@@ -33,7 +33,10 @@ class MainActivity : Activity() {
 
     // CONTROL DE TOASTS: Bandera lógica para identificar si se aceptó un permiso en esta interacción exacta
     private var isPermissionGrantedNow = false
-    
+
+    // Añade el Handler global para evitar fugas de memoria
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
     // COMPONENTES VISUALES: Inicialización perezosa de bajo consumo (evita sobrecargar el arranque de la app) de los interruptores y selectores de la pantalla
     private val switchEnable by lazy { findViewById<Switch>(R.id.switch_enable) }
     private val switchLoop by lazy { findViewById<Switch>(R.id.switch_loop) }
@@ -146,8 +149,7 @@ class MainActivity : Activity() {
                 val serviceIntent = Intent(this@MainActivity, AudioService::class.java).apply {
                     putExtra("sound_type", 1)               
                     putExtra("volume", currentProgress)   
-                    putExtra("target_pct", seekPercentage.progress) 
-                    putExtra("is_test", true)           
+                    putExtra("target_pct", seekPercentage.progress)           
                 }
                 startService(serviceIntent)
             }
@@ -172,7 +174,6 @@ class MainActivity : Activity() {
                     putExtra("sound_type", type)             // Volumen seleccionado en la barra
                     putExtra("volume", currentVolume)        // Volumen seleccionado en la barra
                     putExtra("target_pct", currentTargetPct) // Porcentaje seleccionado en la barra
-                    putExtra("is_test", true)                // Marcamos que es una prueba manual
                 }
                 startService(serviceIntent)
                 
@@ -180,10 +181,11 @@ class MainActivity : Activity() {
             } else if (type == 2) {
                 // Muestra la notificación nativa real de forma inmediata
                 NotificationHelper.showNotification(this, currentTargetPct)
-                // Usamos la ventana de la pantalla para cancelarla a los 7 segundos sin crear hilos en la RAM
-                switchEnable.postDelayed({
-                        (applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as? android.app.NotificationManager)?.cancel(9911)    // Usamos el ID 9911 fijado en el BatteryReceiver
-                    }, 7000)
+                // Usamos el handler centralizado cancelando cualquier temporizador de prueba previo y usamos la ventana de la pantalla para cancelarla a los 7 segundos
+                mainHandler.removeCallbacksAndMessages(null)
+                mainHandler.postDelayed({
+                    (applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as? android.app.NotificationManager)?.cancel(9911) // Usamos el ID 9911 fijado en el BatteryReceiver
+                }, 7000)
             }
         }
 
@@ -364,4 +366,10 @@ class MainActivity : Activity() {
             }
         }
     }
+
+    override fun onDestroy() {
+        mainHandler.removeCallbacksAndMessages(null)
+        super.onDestroy()
+    }
+
 }

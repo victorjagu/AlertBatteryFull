@@ -80,6 +80,38 @@
             <RadioButton android:id="@+id/rb_silent" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Solo notificación visual" android:textColor="?android:attr/textColorPrimary"/>
         </RadioGroup>
 
+        <!-- Selector del canal de audio -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Canal de audio:"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="?android:attr/textColorPrimary"
+            android:layout_marginBottom="8dp"/>
+
+        <RadioGroup
+            android:id="@+id/rg_audio_channel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp">
+
+            <RadioButton
+                android:id="@+id/rb_channel_notification"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Volumen de notificación"
+                android:textColor="?android:attr/textColorPrimary"/>
+
+            <RadioButton
+                android:id="@+id/rb_channel_media"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Volumen multimedia"
+                android:textColor="?android:attr/textColorPrimary"/>
+
+        </RadioGroup>
+
         <!-- Bucle de repetición -->
         <Switch
             android:id="@+id/switch_loop"

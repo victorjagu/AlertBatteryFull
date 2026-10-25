@@ -35,8 +35,8 @@ class MainActivity : Activity() {
     private var isPermissionGrantedNow = false
 
     // Añade el Handler global para evitar fugas de memoria
-    private val mainHandler = Handler(Looper.getMainLooper())
-    
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
     // COMPONENTES VISUALES: Inicialización perezosa de bajo consumo (evita sobrecargar el arranque de la app) de los interruptores y selectores de la pantalla
     private val switchEnable by lazy { findViewById<Switch>(R.id.switch_enable) }
     private val switchLoop by lazy { findViewById<Switch>(R.id.switch_loop) }

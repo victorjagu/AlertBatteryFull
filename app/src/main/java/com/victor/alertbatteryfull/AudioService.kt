@@ -81,7 +81,7 @@ class AudioService : Service() {
                     }
                 }
                 1 -> {    // Lanzar el Pitido (Beep)
-                    playBeepAlert(am, originalVolume, targetVolume)
+                    executeBeepAlert(am, originalVolume, targetVolume)
                 }
                 else -> stopSelf() // Por seguridad, si llega un tipo desconocido, nos apagamos
             }
@@ -104,9 +104,7 @@ class AudioService : Service() {
     
         // Subimos el volumen del móvil justo en el milisegundo antes de hablar
         try {
-            val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            val computedVol = (targetVolume * maxMusicVol) / 100
-            am.setStreamVolume(AudioManager.STREAM_MUSIC, computedVol, 0)
+            aplicarVolumenObjetivo(am, targetVolume)
         } catch (e: Exception) {}
     
         tts?.let { t ->
@@ -162,16 +160,13 @@ class AudioService : Service() {
         }
     }
 
-    private fun playBeepAlert(am: AudioManager, originalVolume: Int, targetVolume: Int) {
+    private fun executeBeepAlert(am: AudioManager, originalVolume: Int, targetVolume: Int) {
         // Declaramos la variable fuera del bloque para poder liberarla al final pase lo que pase
         var toneGen: ToneGenerator? = null
-       
         try {
             // Bloque interno para intentar ajustar el volumen multimedia al nivel deseado (subimos el volumen del sistema multimedia justo antes de reproducir el pitido)
             try {
-                val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                val computedVol = (targetVolume * maxMusicVol) / 100
-                am.setStreamVolume(AudioManager.STREAM_MUSIC, computedVol, 0)
+                aplicarVolumenObjetivo(am, targetVolume)
                 
             // Si falla el ajuste de volumen, ignoramos el error para no colgar la app
             } catch (e: Exception) {}    
@@ -180,27 +175,28 @@ class AudioService : Service() {
             toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
             toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 250)
 
-     } catch (e: Exception) {
-            // Si hay un fallo físico con el chip de sonido, el catch evita que la aplicación se cierre (crash)
-
-    // El bloque FINALLY se ejecuta SIEMPRE, garantizando que el teléfono vuelva a la normalidad
-    } finally {
-        mainHandler.postDelayed({
-            try {
-                // Devolvemos el móvil al volumen multimedia original que tenía el usuario
-                am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
-            } catch (e: Exception) {}
-            
-            try {
-                // Liberamos los controladores físicos de audio para que el chip de sonido entre en reposo
-                toneGen?.release()
-            } catch (e: Exception) {}
-            
-            // Destruimos el servicio por completo para que no consuma memoria RAM en segundo plano
-            stopSelf()
-        }, 300) // Damos un margen de 300 milisegundos para asegurar que el pitido termine de sonar completo
+        } catch (e: Exception) {
+                // Si hay un fallo físico con el chip de sonido, el catch evita que la aplicación se cierre (crash)
+    
+        // El bloque FINALLY se ejecuta SIEMPRE, garantizando que el teléfono vuelva a la normalidad
+        } finally {
+            mainHandler.postDelayed({
+                try {
+                    // Devolvemos el móvil al volumen multimedia original que tenía el usuario
+                    am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
+                } catch (e: Exception) {}
+                
+                try {
+                    // Liberamos los controladores físicos de audio para que el chip de sonido entre en reposo
+                    toneGen?.release()
+                } catch (e: Exception) {}
+                
+                // Destruimos el servicio por completo para que no consuma memoria RAM en segundo plano
+                stopSelf()
+            }, 300) // Damos un margen de 300 milisegundos para asegurar que el pitido termine de sonar completo
+        }
     }
-
+    
     override fun onDestroy() {
         mainHandler.removeCallbacksAndMessages(null)
         // LIMPIEZA ABSOLUTA DE RAM: Al morir el servicio de forma definitiva, desconectamos el motor de voz por completo del sistema operativo
@@ -217,4 +213,13 @@ class AudioService : Service() {
     override fun onBind(intent: Intent?): IBinder? {
         return null
     }
+
+    private fun aplicarVolumenObjetivo(am: AudioManager, targetVolume: Int) {
+        try {
+            val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            val computedVol = (targetVolume * maxMusicVol) / 100
+            am.setStreamVolume(AudioManager.STREAM_MUSIC, computedVol, 0)
+        } catch (e: Exception) {}
+    }
+
 }

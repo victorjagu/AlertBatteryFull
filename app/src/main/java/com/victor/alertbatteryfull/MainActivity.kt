@@ -112,27 +112,25 @@ class MainActivity : Activity() {
         // INTERRUPTOR DE LA VIBRACIÓN NATIVA CON PULSO DE PRUEBA OPTIMIZADO
         switchVibrate.setOnCheckedChangeListener { _, isChecked -> 
             // Guardamos la preferencia en el almacenamiento interno
-            prefs.edit().putBoolean("vibrate", isChecked).apply() 
+            savePref("vibrate", isChecked)
             
             // Si el usuario enciende la vibración con el dedo, hacemos latir el motor de hardware
             if (isChecked) {
-                // Accedemos de forma directa al chip del motor háptico del teléfono
-                val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    // Creamos los atributos de audio indicando que es una alarma de notificación
-                    val audioAttributes = android.media.AudioAttributes.Builder()
-                        .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_DELAYED)
-                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build()
-                    // Enviamos el efecto de vibración junto con los atributos exigidos por Android 14
-                    vibrator?.vibrate(
-                        VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE),
-                        audioAttributes
-                    )
-                } else {
-                    // Versiones antiguas de rescate para asegurar retrocompatibilidad
-                    @Suppress("DEPRECATION")
-                    vibrator?.vibrate(200)
+                // Accedemos al chip haptico para la vibracion
+                (getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator)?.let { vibrator ->
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        // Creamos los atributos de audio indicando que es una alarma de notificación avanzada
+                        val audioAttributes = android.media.AudioAttributes.Builder()
+                            .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_DELAYED)
+                            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build()
+                        // Enviamos el efecto de vibración optimizado junto con sus atributos nativos
+                        vibrator.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE), audioAttributes)
+                    } else {
+                        // Versión de rescate para asegurar retrocompatibilidad en dispositivos antiguos
+                        @Suppress("DEPRECATION")
+                        vibrator.vibrate(200)
+                    }
                 }
             }
         }
@@ -189,10 +187,9 @@ class MainActivity : Activity() {
                 // Muestra la notificación nativa real de forma inmediata
                 NotificationHelper.showNotification(this, currentTargetPct)
                 // Usamos la ventana de la pantalla para cancelarla a los 7 segundos sin crear hilos en la RAM
-                window.decorView.postDelayed({
-                    val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? android.app.NotificationManager
-                    nm?.cancel(9911)  // Usamos el ID 9911 fijado en el BatteryReceiver
-                }, 7000)
+                switchEnable.postDelayed({
+                        (applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as? android.app.NotificationManager)?.cancel(9911)    // Usamos el ID 9911 fijado en el BatteryReceiver
+                    }, 7000)
             }
         }
 

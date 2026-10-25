@@ -34,8 +34,7 @@ class AudioService : Service() {
                     val originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
                     val targetVolume = intent.getIntExtra("volume", 80)
                     val targetPct = intent.getIntExtra("target_pct", 100)
-                    val isTest = intent.getBooleanExtra("is_test", false)
-                    executeVoiceAlert(am, originalVolume, targetVolume, targetPct, isTest)
+                    executeVoiceAlert(am, originalVolume, targetVolume, targetPct)
                     pendingIntent = null
                 }
             }
@@ -49,7 +48,6 @@ class AudioService : Service() {
             val soundType = intent.getIntExtra("sound_type", 0)       // 0 = Voz, 1 = Beep
             val targetVolume = intent.getIntExtra("volume", 80)       // Volumen elegido en nuestra barra
             val targetPct = intent.getIntExtra("target_pct", 100)     // Porcentaje actual de la alerta
-            val isTest = intent.getBooleanExtra("is_test", false)     // Saber si es solo una prueba manual
             
             // 3. Accedemos al gestor de audio nativo del teléfono
             val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -74,7 +72,7 @@ class AudioService : Service() {
                     // Si el motor de Google ya está listo en el sistema, habla inmediatamente
                     if (isTtsReady) {
                         isSpeaking = true
-                        executeVoiceAlert(am, originalVolume, targetVolume, targetPct, isTest)
+                        executeVoiceAlert(am, originalVolume, targetVolume, targetPct)
                     } else {
                         // Si el motor aún se está conectando de fondo, guardamos este intento para lanzarlo al revivir
                         pendingIntent = intent
@@ -94,7 +92,7 @@ class AudioService : Service() {
         return START_STICKY
     }
 
-    private fun executeVoiceAlert(am: AudioManager, originalVolume: Int, targetVolume: Int, pct: Int, isTest: Boolean) {
+    private fun executeVoiceAlert(am: AudioManager, originalVolume: Int, targetVolume: Int, pct: Int) {
         // 1. Construimos de forma dinámica la frase exacta según el porcentaje objetivo configurado
         val message = if (pct == 100) {
             getString(R.string.msg_voice_full)

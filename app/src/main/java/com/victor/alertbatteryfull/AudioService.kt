@@ -101,9 +101,7 @@ class AudioService : Service() {
         }
     
         // Subimos el volumen del móvil justo en el milisegundo antes de hablar
-        try {
-            aplicarVolumenObjetivo(am, targetVolume)
-        } catch (e: Exception) {}
+        aplicarVolumenObjetivo(am, targetVolume)
     
         tts?.let { t ->
             // 3. Establecemos el idioma por defecto configurado en el teléfono del usuario
@@ -163,11 +161,7 @@ class AudioService : Service() {
         var toneGen: ToneGenerator? = null
         try {
             // Bloque interno para intentar ajustar el volumen multimedia al nivel deseado (subimos el volumen del sistema multimedia justo antes de reproducir el pitido)
-            try {
-                aplicarVolumenObjetivo(am, targetVolume)
-                
-            // Si falla el ajuste de volumen, ignoramos el error para no colgar la app
-            } catch (e: Exception) {}    
+            aplicarVolumenObjetivo(am, targetVolume)
     
             // Inicializamos el generador de tonos y emitimos un pitido de hardware de 250ms
             toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
@@ -176,8 +170,8 @@ class AudioService : Service() {
         } catch (e: Exception) {
                 // Si hay un fallo físico con el chip de sonido, el catch evita que la aplicación se cierre (crash)
     
-        // El bloque FINALLY se ejecuta SIEMPRE, garantizando que el teléfono vuelva a la normalidad
         } finally {
+            // El bloque FINALLY se ejecuta SIEMPRE, garantizando que el teléfono vuelva a la normalidad
             mainHandler.postDelayed({
                 try {
                     // Devolvemos el móvil al volumen multimedia original que tenía el usuario

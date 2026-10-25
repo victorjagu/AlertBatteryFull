@@ -212,12 +212,13 @@ class BatteryReceiver : BroadcastReceiver() {
 
         if (ignoreSilence || am.ringerMode == AudioManager.RINGER_MODE_NORMAL) {
             try {
-                // NUEVO: Lanzamos la orden relámpago hacia nuestro AudioService especialista
+                // Lanzamos la orden relámpago hacia nuestro AudioService especialista
                 val serviceIntent = Intent(context, AudioService::class.java).apply {
                     putExtra("sound_type", soundType)   // Le pasamos el tipo (Voz o Beep)
                     putExtra("volume", targetVolume)     // Le pasamos el volumen de la barra
                     putExtra("target_pct", targetPct)   // El porcentaje real de carga
                     putExtra("is_test", false)          // Indicamos que es la alarma real, NO una prueba
+                    putExtra("custom_volume", prefs.getBoolean("custom_volume", true))
                 }
                 context.startService(serviceIntent)
             } catch (e: Exception) {}

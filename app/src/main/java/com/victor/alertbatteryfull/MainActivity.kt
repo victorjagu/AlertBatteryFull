@@ -10,6 +10,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.provider.Settings
 import android.widget.Button
 import android.widget.RadioGroup
@@ -26,259 +28,240 @@ class MainActivity : Activity() {
     // HARDWARE: Gestor de energía del sistema operativo para verificar el ahorro de batería
     private val powerManager by lazy { getSystemService(Context.POWER_SERVICE) as PowerManager }
 
-    // Variable de control global
+    // Variable de control global para saber si el usuario salió a la pantalla de configuración manual
     private var isWaitingForSettings = false
+
+    // CONTROL DE TOASTS: Bandera lógica para identificar si se aceptó un permiso en esta interacción exacta
+    private var isPermissionGrantedNow = false
     
-    // COMPONENTES VISUALES: Declaración de los interruptores y selectores de la pantalla
-    private lateinit var switchEnable: Switch
-    private lateinit var switchLoop: Switch
-    private lateinit var switchVibrate: Switch
-    private lateinit var seekPercentage: SeekBar
-    private lateinit var seekVolume: SeekBar
-    private lateinit var tvPercentageLabel: TextView
-    private lateinit var tvVolumeLabel: TextView
-    private lateinit var rgSoundType: RadioGroup
-    private lateinit var btnBatterySettings: Button
-    private lateinit var switchSoundDelay: Switch
-    private lateinit var switchIgnoreSilence: Switch
-    
+    // COMPONENTES VISUALES: Inicialización perezosa de bajo consumo (evita sobrecargar el arranque de la app) de los interruptores y selectores de la pantalla
+    private val switchEnable by lazy { findViewById<Switch>(R.id.switch_enable) }
+    private val switchLoop by lazy { findViewById<Switch>(R.id.switch_loop) }
+    private val switchVibrate by lazy { findViewById<Switch>(R.id.switch_vibrate) }
+    private val seekPercentage by lazy { findViewById<SeekBar>(R.id.seek_percentage) }
+    private val seekVolume by lazy { findViewById<SeekBar>(R.id.seek_volume) }
+    private val tvPercentageLabel by lazy { findViewById<TextView>(R.id.tv_percentage_label) }
+    private val tvVolumeLabel by lazy { findViewById<TextView>(R.id.tv_volume_label) }
+    private val rgSoundType by lazy { findViewById<RadioGroup>(R.id.rg_sound_type) }
+    private val btnBatterySettings by lazy { findViewById<Button>(R.id.btn_battery_settings) }
+    private val switchSoundDelay by lazy { findViewById<Switch>(R.id.switch_sound_delay) }
+    private val switchIgnoreSilence by lazy { findViewById<Switch>(R.id.switch_ignore_silence) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
         // MODO OSCURO: Aplicamos el tema negro puro OLED antes de dibujar las vistas
         setTheme(R.style.Theme_AlertBattery)
-        
+
         // INTERFAZ: Inflamos el diseño visual definido en el archivo XML
         setContentView(R.layout.activity_main)
         
-        // AUDIO DE NOTIFICACIONES: Sincroniza el slider físico del móvil con el canal de notificaciones para máxima suavidad
+        // AUDIO DE NOTIFICACIONES: Sincroniza el slider físico con el canal del sistema
         volumeControlStream = android.media.AudioManager.STREAM_NOTIFICATION
-        
-        // ENLACES: Conectamos las variables de Kotlin con los ID del plano visual XML
-        switchEnable = findViewById(R.id.switch_enable)
-        switchLoop = findViewById(R.id.switch_loop)
-        switchVibrate = findViewById(R.id.switch_vibrate)
-        seekPercentage = findViewById(R.id.seek_percentage)
-        seekVolume = findViewById(R.id.seek_volume)
-        tvPercentageLabel = findViewById(R.id.tv_percentage_label)
-        tvVolumeLabel = findViewById(R.id.tv_volume_label)
-        rgSoundType = findViewById(R.id.rg_sound_type)
-        btnBatterySettings = findViewById(R.id.btn_battery_settings)
-        switchSoundDelay = findViewById(R.id.switch_sound_delay)
-        switchIgnoreSilence = findViewById(R.id.switch_ignore_silence)
 
         // INTERRUPTOR DE RETARDO DE SONIDO
-        switchSoundDelay.setOnCheckedChangeListener { _, isChecked -> 
-            prefs.edit().putBoolean("sound_delay", isChecked).apply() 
-        }
+        switchSoundDelay.setOnCheckedChangeListener { _, isChecked -> savePref("sound_delay", isChecked) }
 
         // INTERRUPTOR PARA IGNORAR EL MODO SILENCIO/VIBRACION DEL MOVIL
-        switchIgnoreSilence.setOnCheckedChangeListener { _, isChecked ->
-            prefs.edit().putBoolean("ignore_silence", isChecked).apply()
-        }
+        switchIgnoreSilence.setOnCheckedChangeListener { _, isChecked -> savePref("ignore_silence", isChecked) }
 
-        // MEMORIA: Leemos el almacenamiento para restaurar el estado anterior de la app
+        // INTERRUPTOR DEL BUCLE DE REPETICIÓN
+        switchLoop.setOnCheckedChangeListener { _, isChecked -> savePref("loop", isChecked) }
+
+        // MEMORIA: Restauramos el estado guardado de la app
         loadPreferences()
 
-        // CONTROL DE PORCENTAJE OBJETIVO
+        // CONTROL DE PORCENTAJE OBJETIVO (SeekBar con límites simplificados)
         seekPercentage.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
+                // Operación ultra-ligera: solo actualiza el texto en pantalla
                 val pct = if (progress < 1) 1 else progress
                 tvPercentageLabel.text = getString(R.string.ui_battery_target, pct)
-                prefs.edit().putInt("target_pct", pct).apply()
             }
             override fun onStartTrackingTouch(sb: SeekBar?) {}
-            override fun onStopTrackingTouch(sb: SeekBar?) {}
+            override fun onStopTrackingTouch(sb: SeekBar?) {
+                // Guarda en el disco del teléfono UNA SOLA VEZ cuando el usuario suelta el dedo
+                val pct = sb?.progress ?: 100
+                val finalPct = if (pct < 1) 1 else pct
+                savePref("target_pct", finalPct)
+            }
         })
-        
+
         // INTERRUPTOR PRINCIPAL: Activa la app y arranca el flujo unificado
         switchEnable.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
+                // Reiniciamos el estado del permiso concedido antes de evaluar el hardware
+                isPermissionGrantedNow = false 
                 verificarYActivarPermisos()
             } else {
                 saveEnabledState(false)
                 toggleAppComponents(false)
+                // MENSAJE DE APAGADO
                 Toast.makeText(this, getString(R.string.toast_app_disabled, getString(R.string.app_name)), Toast.LENGTH_SHORT).show()
             }
         }
 
-        // INTERRUPTOR DEL BUCLE DE REPETICIÓN
-        switchLoop.setOnCheckedChangeListener { _, isChecked -> 
-            prefs.edit().putBoolean("loop", isChecked).apply() 
-        }
-
-        // INTERRUPTOR DE LA VIBRACIÓN NATIVA CON PULSO DE PRUEBA INSTANTÁNEO
+        // INTERRUPTOR DE LA VIBRACIÓN NATIVA CON PULSO DE PRUEBA OPTIMIZADO
         switchVibrate.setOnCheckedChangeListener { _, isChecked -> 
             // Guardamos la preferencia en el almacenamiento interno
-            prefs.edit().putBoolean("vibrate", isChecked).apply() 
+            savePref("vibrate", isChecked)
             
             // Si el usuario enciende la vibración con el dedo, hacemos latir el motor de hardware
             if (isChecked) {
-                try {
-                    // Accedemos de forma directa al chip del motor háptico del teléfono
-                    val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
-                    
+                // Accedemos al chip haptico para la vibracion
+                (getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator)?.let { vibrator ->
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        // Creamos los atributos de audio indicando que es una alarma de notificación
+                        // Creamos los atributos de audio indicando que es una alarma de notificación avanzada
                         val audioAttributes = android.media.AudioAttributes.Builder()
                             .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_DELAYED)
                             .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
                             .build()
-                        // Enviamos el efecto de vibración junto con los atributos exigidos por Android 14
-                        vibrator.vibrate(
-                            android.os.VibrationEffect.createOneShot(200, android.os.VibrationEffect.DEFAULT_AMPLITUDE),
-                            audioAttributes
-                        )
+                        // Enviamos el efecto de vibración optimizado junto con sus atributos nativos
+                        vibrator.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE), audioAttributes)
                     } else {
-                        // Versiones antiguas de rescate para asegurar retrocompatibilidad
+                        // Versión de rescate para asegurar retrocompatibilidad en dispositivos antiguos
                         @Suppress("DEPRECATION")
                         vibrator.vibrate(200)
                     }
-                } catch (e: Exception) {
-                    // Salvaguarda por si el fabricante tiene el motor ocupado por el sistema
                 }
             }
         }
 
         // DESLIZADOR DE VOLUMEN CON EMISIÓN DE BEEP DE PRUEBA
+        // DESLIZADOR DE VOLUMEN OPTIMIZADO (Ahorro de CPU y batería)
         seekVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
-                // Actualizamos el número del volumen dinámicamente en la pantalla (Ej: 65%)
+                // Operación ligera: solo cambia el texto visual mientras mueves el dedo
                 tvVolumeLabel.text = getString(R.string.ui_volume_alert, progress)
-                // Registramos el valor en el almacenamiento interno
-                prefs.edit().putInt("volume", progress).apply()
             }
             override fun onStartTrackingTouch(sb: SeekBar?) {}
             override fun onStopTrackingTouch(sb: SeekBar?) {
-                // El usuario ha soltado la barra: calculamos el volumen final real
+                // El usuario soltó la barra: guardamos en disco y disparamos la prueba al mismo tiempo
                 val currentProgress = sb?.progress ?: 80
-                try {
-                    // Creamos la orden directa para encender nuestro servicio acústico especializado
-                    val serviceIntent = Intent(this@MainActivity, AudioService::class.java).apply {
-                        putExtra("sound_type", 1)               // Tipo 1: Reproducir el Beep físico de hardware
-                        putExtra("volume", currentProgress)   // Le pasamos el volumen seleccionado por el usuario
-                        putExtra("target_pct", seekPercentage.progress) // Porcentaje actual de la interfaz
-                        putExtra("is_test", true)           // Marcamos que es solo una prueba manual desde la pantalla
-                    }
-                    // Arrancamos el servicio ligero de forma nativa
-                    startService(serviceIntent)
-                } catch (e: Exception) {
-                    // Salvaguarda por si el sistema operativo está ocupado
+                
+                // 1. Guardado único en almacenamiento
+                savePref("volume", currentProgress)
+                
+                // 2. Ejecución del pitido de prueba
+                val serviceIntent = Intent(this@MainActivity, AudioService::class.java).apply {
+                    putExtra("sound_type", 1)               
+                    putExtra("volume", currentProgress)   
+                    putExtra("target_pct", seekPercentage.progress) 
+                    putExtra("is_test", true)           
                 }
+                startService(serviceIntent)
             }
         })
 
-        // SELECTOR DE TIPO DE SONIDO CON PRUEBAS FÍSICAS EN TIEMPO REAL
+        // SELECTOR DE TIPO DE SONIDO CON PRUEBAS FÍSICAS SIMPLIFICADAS
         rgSoundType.setOnCheckedChangeListener { _, checkedId ->
-            // 1. Calculamos el tipo y el volumen actual para la prueba
+            // Calculamos el tipo y el volumen actual para la prueba
             val type = when (checkedId) {
                 R.id.rb_beep -> 1    // Modo 1: Beep de hardware
                 R.id.rb_silent -> 2  // Modo 2: Solo mensaje visual
                 else -> 0            // Modo 0: Alerta por Voz
             }
-            prefs.edit().putInt("sound_type", type).apply()
+            savePref("sound_type", type)
             
             val currentVolume = seekVolume.progress
             val currentTargetPct = seekPercentage.progress
 
-            // 2. Ejecutamos la prueba con los mensajes reales de la aplicación
-            when (type) {
-                0, 1 -> { // Invoca al servicio de audio de forma unificada (0 = Voz, 1 = Beep)
-                    try {
-                        val serviceIntent = Intent(this, AudioService::class.java).apply {
-                            putExtra("sound_type", type)             // Pasa directamente la variable 'type' ya calculada arriba (0 = Voz, 1 = Beep)
-                            putExtra("volume", currentVolume)        // Volumen seleccionado en la barra
-                            putExtra("target_pct", currentTargetPct) // Porcentaje seleccionado en la barra
-                            putExtra("is_test", true)                // Marcamos que es una prueba manual
-                        }
-                        startService(serviceIntent)
-                    } catch (e: Exception) {}
+            // Invoca al servicio de audio de forma unificada (0 = Voz, 1 = Beep)
+            if (type == 0 || type == 1) {
+                val serviceIntent = Intent(this, AudioService::class.java).apply {
+                    putExtra("sound_type", type)             // Volumen seleccionado en la barra
+                    putExtra("volume", currentVolume)        // Volumen seleccionado en la barra
+                    putExtra("target_pct", currentTargetPct) // Porcentaje seleccionado en la barra
+                    putExtra("is_test", true)                // Marcamos que es una prueba manual
                 }
+                startService(serviceIntent)
                 
-                2 -> { // CASO SOLO MENSAJE: Muestra en la ventana el texto idéntico que se enviará como notificación
-                    try {
-                        // 1. Muestra la notificación nativa real de forma inmediata
-                        NotificationHelper.showNotification(this, currentTargetPct)
-                        
-                        // 2. Usamos la ventana de la pantalla para cancelarla a los 7 segundos sin crear hilos en la RAM
-                        window.decorView.postDelayed({
-                            try {
-                                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-                                nm.cancel(9911) // Usamos el ID 9911 fijado en el BatteryReceiver
-                            } catch (e: Exception) {}
-                        }, 7000)
-                    } catch (e: Exception) {}
-                }
+            // CASO SOLO MENSAJE: Muestra en la ventana el texto idéntico que se enviará como notificación
+            } else if (type == 2) {
+                // Muestra la notificación nativa real de forma inmediata
+                NotificationHelper.showNotification(this, currentTargetPct)
+                // Usamos la ventana de la pantalla para cancelarla a los 7 segundos sin crear hilos en la RAM
+                switchEnable.postDelayed({
+                        (applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as? android.app.NotificationManager)?.cancel(9911)    // Usamos el ID 9911 fijado en el BatteryReceiver
+                    }, 7000)
             }
         }
 
-        // BOTÓN MANUAL DE AUXILIO: Lanza primero el diálogo explicativo con las instrucciones
+        // BOTÓN MANUAL DE INSTRUCCIONES
         btnBatterySettings.setOnClickListener { showManualInstructionsDialog() }
-
     }
 
-    // MÉTODO UNIFICADO: Revisa ambos permisos y activa la aplicación
+    // MÉTODO UNIFICADO: Revisa la cadena de permisos uno a uno de forma secuencial
     private fun verificarYActivarPermisos() {
-        val currentContext = this
-        
-        // 1. COMPROBACIÓN DEL PERMISO DE NOTIFICACIONES (Android 13+)
+        // COMPROBACIÓN DEL PERMISO DE NOTIFICACIONES (Requerido obligatoriamente en Android 13/14+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val permission = "android.permission.POST_NOTIFICATIONS"
             if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(arrayOf(permission), 101)
+                requestPermissions(arrayOf(permission), 101) // Lanza el cuadro emergente del sistema operativo
                 return
             }
         }
 
-        // 2. COMPROBACIÓN DE OPTIMIZACIÓN DE BATERÍA (Android 6+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
-                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                    data = Uri.parse("package:$packageName")
-                }
-                try {
-                    startActivityForResult(intent, 102)
-                } catch (e: Exception) {
-                    showManualInstructionsDialog()
-                }
-                return
+        // COMPROBACIÓN DE OPTIMIZACIÓN DE BATERÍA (Evita que el sistema destruya la app en segundo plano)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !powerManager.isIgnoringBatteryOptimizations(packageName)) {
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = Uri.parse("package:$packageName")
             }
+            try {
+                // Marcamos que salimos de la app hacia los ajustes
+                isWaitingForSettings = true 
+                // Envía al usuario a la ventana de exclusión del sistema
+                startActivityForResult(intent, 102) 
+            } catch (e: Exception) {
+                // Rescate si el dispositivo bloquea el intent directo
+                showManualInstructionsDialog() 
+            }
+            return
         }
 
-        // 3. PROCESO DE ACTIVACIÓN EXITOSA
+        // PROCESO DE ACTIVACIÓN DE COMPONENTES INTERNOS TRAS SUPERAR LOS PERMISOS
+        confirmarActivacionExitosa()
+    }
+
+    // CENTRALIZACIÓN DE MENSAJES TOAST: Evita duplicar el código de éxito
+    private fun confirmarActivacionExitosa() {
         saveEnabledState(true)
         switchEnable.isChecked = true
         toggleAppComponents(true)
 
-        // CONTROL INTELIGENTE DE TOASTS:
-        val isInitialActivationDone = prefs.getBoolean("initial_activation_done", false)
-        if (!isInitialActivationDone) {
-            // Si es la primerísima vez que el usuario concede todo, le felicitamos por los permisos
-            Toast.makeText(currentContext, getString(R.string.toast_permissions_granted), Toast.LENGTH_SHORT).show()
-            prefs.edit().putBoolean("initial_activation_done", true).apply()
-        } else {
-            // Si los permisos ya estaban listos de antes, simplemente confirmamos el inicio normal
-            Toast.makeText(currentContext, getString(R.string.toast_app_started, getString(R.string.app_name)), Toast.LENGTH_SHORT).show()
+        // Si el usuario acaba de otorgar un permiso en esta interacción, mostramos el aviso intermedio de éxito
+        if (isPermissionGrantedNow) {
+            Toast.makeText(this, getString(R.string.toast_permissions_granted), Toast.LENGTH_SHORT).show()
         }
+
+        // Aviso flash de app encendida
+        Toast.makeText(this, getString(R.string.toast_app_started, getString(R.string.app_name)), Toast.LENGTH_SHORT).show()
     }
 
+    // RETORNO DE PETICIÓN EN TIEMPO REAL: Analiza la acción del usuario sobre el diálogo de notificaciones
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        if (requestCode == 101) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                verificarYActivarPermisos()
-            } else {
-                bloquearSwitchPorFaltaDePermisos()
-            }
+        if (requestCode == 101 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            isPermissionGrantedNow = true // Almacena que el permiso fue aprobado en caliente
+            verificarYActivarPermisos()   // Continúa evaluando el siguiente eslabón
+        } else if (requestCode == 101) {
+            bloquearSwitchPorFaltaDePermisos()
         }
     }
 
+    // RETORNO DE ACTIVIDAD EXTERNA: Analiza el comportamiento tras volver del menú nativo de batería
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 102) {
-            showManualInstructionsDialog()
+            // Evaluamos si de regreso de la configuración externa, el permiso fue finalmente aprobado
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                isPermissionGrantedNow = true
+            }
+            isWaitingForSettings = false // Restablecemos el monitor general de salida
+            verificarYActivarPermisos()  // Ejecuta el proceso de activación final
         }
     }
 
+    // CIERRE SEGURIZADO: Apaga el switch principal si se deniega algún requerimiento fundamental de funcionamiento
     private fun bloquearSwitchPorFaltaDePermisos() {
         saveEnabledState(false)
         switchEnable.isChecked = false
@@ -300,7 +283,7 @@ class MainActivity : Activity() {
             .setPositiveButton(getString(R.string.dialog_reliability_btn)) { dialog, _ ->
                 dialog.dismiss()
                 isWaitingForSettings = true    // Avisamos que el usuario está saliendo activamente a configurar los menús
-                launchSystemSettings() // Abre la ventana nativa de la app en el móvil
+                launchSystemSettings()         // Abre la ventana nativa de la app en el móvil
             }
             .show()
     }
@@ -310,7 +293,6 @@ class MainActivity : Activity() {
         saveEnabledState(false)
         switchEnable.isChecked = false
         toggleAppComponents(false)
-
         AlertDialog.Builder(this)
             .setTitle(title)
             .setMessage(message)
@@ -319,29 +301,32 @@ class MainActivity : Activity() {
             .show()
     }
 
-    private fun saveEnabledState(state: Boolean) {
-        prefs.edit().putBoolean("enabled", state).apply()
-    }
+    // UNIFICAMOS ESCRITURA DE VALORES EN DISCO
+    private fun savePref(key: String, value: Boolean) = prefs.edit().putBoolean(key, value).apply()
+    private fun savePref(key: String, value: Int) = prefs.edit().putInt(key, value).apply()
+    private fun saveEnabledState(state: Boolean) = savePref("enabled", state)
 
     private fun loadPreferences() {
-        switchEnable.isChecked = prefs.getBoolean("enabled", false)
-        switchLoop.isChecked = prefs.getBoolean("loop", true)
-        switchVibrate.isChecked = prefs.getBoolean("vibrate", true)
-        switchSoundDelay.isChecked = prefs.getBoolean("sound_delay", false)
-        switchIgnoreSilence.isChecked = prefs.getBoolean("ignore_silence", false)
-
-        val pct = prefs.getInt("target_pct", 100)
-        seekPercentage.progress = pct
-        tvPercentageLabel.text = getString(R.string.ui_battery_target, pct)
-        
-        val vol = prefs.getInt("volume", 80)
-        seekVolume.progress = vol
-        tvVolumeLabel.text = getString(R.string.ui_volume_alert, vol)
-        
-        when (prefs.getInt("sound_type", 0)) {
-            1 -> rgSoundType.check(R.id.rb_beep)
-            2 -> rgSoundType.check(R.id.rb_silent)
-            else -> rgSoundType.check(R.id.rb_voice)
+        with(prefs) {
+            switchEnable.isChecked = getBoolean("enabled", false)
+            switchLoop.isChecked = getBoolean("loop", true)
+            switchVibrate.isChecked = getBoolean("vibrate", true)
+            switchSoundDelay.isChecked = getBoolean("sound_delay", false)
+            switchIgnoreSilence.isChecked = getBoolean("ignore_silence", false)
+    
+            val pct = getInt("target_pct", 100)
+            seekPercentage.progress = pct
+            tvPercentageLabel.text = getString(R.string.ui_battery_target, pct)
+            
+            val vol = getInt("volume", 80)
+            seekVolume.progress = vol
+            tvVolumeLabel.text = getString(R.string.ui_volume_alert, vol)
+            
+            rgSoundType.check(when (getInt("sound_type", 0)) {
+                1 -> R.id.rb_beep
+                2 -> R.id.rb_silent
+                else -> R.id.rb_voice
+            })
         }
     }
 
@@ -349,9 +334,7 @@ class MainActivity : Activity() {
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
             data = Uri.fromParts("package", packageName, null)
         }
-        try {
-            startActivity(intent)
-        } catch (e: Exception) {}
+        startActivity(intent)
     }
 
     private fun toggleAppComponents(enable: Boolean) {
@@ -363,27 +346,17 @@ class MainActivity : Activity() {
     // FUNCIÓN DE VIGILANCIA: Se activa de forma automática cada vez que el usuario regresa a la pantalla de la app
     override fun onResume() {
         super.onResume()
-        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val isIgnoring = powerManager.isIgnoringBatteryOptimizations(packageName)
             val isAppSavedAsEnabled = prefs.getBoolean("enabled", false)
-            
+
             // EL CANDADO REAL: Solo comprobamos el éxito si el usuario estaba editando los ajustes y acaba de volver
             if (isIgnoring && !isAppSavedAsEnabled && isWaitingForSettings) {
                 isWaitingForSettings = false
-                saveEnabledState(true)
-                switchEnable.isChecked = true
-                toggleAppComponents(true)
-                
-                val isInitialActivationDone = prefs.getBoolean("initial_activation_done", false)
-                if (!isInitialActivationDone) {
-                    Toast.makeText(this, getString(R.string.toast_app_started, getString(R.string.app_name)), Toast.LENGTH_SHORT).show()
-                    prefs.edit().putBoolean("initial_activation_done", true).apply()
-                }
-            }
-
+                isPermissionGrantedNow = true    // Marcamos que el ajuste de optimización de batería manual tuvo éxito
+                confirmarActivacionExitosa()    // Llamamos a la función centralizada informando del resultado
             // Si la app estaba activa en disco pero el usuario revocó el permiso por detrás en el móvil
-            else if (!isIgnoring && isAppSavedAsEnabled) {
+            } else if (!isIgnoring && isAppSavedAsEnabled) {
                 turnOffAppWithDialog(
                     getString(R.string.dialog_permissions_modified_title),
                     getString(R.string.dialog_permissions_modified_text)

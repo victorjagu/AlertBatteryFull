@@ -83,7 +83,7 @@ class MainActivity : Activity() {
                 // Guarda en el disco del teléfono UNA SOLA VEZ cuando el usuario suelta el dedo
                 val pct = sb?.progress ?: 100
                 val finalPct = if (pct < 1) 1 else pct
-                prefs.edit().putInt("target_pct", finalPct).apply()
+                savePref("target_pct", finalPct)
             }
         })
 
@@ -140,7 +140,7 @@ class MainActivity : Activity() {
                 val currentProgress = sb?.progress ?: 80
                 
                 // 1. Guardado único en almacenamiento
-                prefs.edit().putInt("volume", currentProgress).apply()
+                savePref("volume", currentProgress)
                 
                 // 2. Ejecución del pitido de prueba
                 val serviceIntent = Intent(this@MainActivity, AudioService::class.java).apply {
@@ -161,7 +161,7 @@ class MainActivity : Activity() {
                 R.id.rb_silent -> 2  // Modo 2: Solo mensaje visual
                 else -> 0            // Modo 0: Alerta por Voz
             }
-            prefs.edit().putInt("sound_type", type).apply()
+            savePref("sound_type", type)
             
             val currentVolume = seekVolume.progress
             val currentTargetPct = seekPercentage.progress
@@ -301,7 +301,9 @@ class MainActivity : Activity() {
             .show()
     }
 
+    // UNIFICAMOS ESCRITURA DE VALORES EN DISCO
     private fun savePref(key: String, value: Boolean) = prefs.edit().putBoolean(key, value).apply()
+    private fun savePref(key: String, value: Int) = prefs.edit().putInt(key, value).apply()
     private fun saveEnabledState(state: Boolean) = savePref("enabled", state)
 
     private fun loadPreferences() {

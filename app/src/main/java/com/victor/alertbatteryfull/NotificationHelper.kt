@@ -34,7 +34,7 @@ object NotificationHelper {
         )
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(context.applicationInfo.icon) // Usa el icono de tu app automáticamente
+            .setSmallIcon(R.mipmap.ic_launcher_foreground)
             .setContentTitle(context.getString(R.string.msg_notif_title))
             .setContentText(context.getString(R.string.msg_notif_text, percentage))
             .setPriority(NotificationCompat.PRIORITY_HIGH)

@@ -28,6 +28,13 @@ class AudioService : Service() {
         tts = TextToSpeech(applicationContext) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 isTtsReady = true
+                tts?.language = Locale.getDefault()
+                val audioAttributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+                tts?.setAudioAttributes(audioAttributes)
+
                 // Si llegó una orden de voz mientras el motor se estaba encendiendo, la procesamos inmediatamente ahora
                 pendingIntent?.let { intent ->
                     val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -93,7 +100,7 @@ class AudioService : Service() {
     }
 
     private fun executeVoiceAlert(am: AudioManager, originalVolume: Int, targetVolume: Int, pct: Int) {
-        // 1. Construimos de forma dinámica la frase exacta según el porcentaje objetivo configurado
+        // Construimos de forma dinámica la frase exacta según el porcentaje objetivo configurado
         val message = if (pct == 100) {
             getString(R.string.msg_voice_full)
         } else {
@@ -104,17 +111,6 @@ class AudioService : Service() {
         aplicarVolumenObjetivo(am, targetVolume)
     
         tts?.let { t ->
-            // 3. Establecemos el idioma por defecto configurado en el teléfono del usuario
-            t.language = Locale.getDefault()
-
-            // 5. Forzamos al motor a usar el canal multimedia con categoría de ALERTA
-            // Esto permite el "ducking" (bajar el volumen de Spotify/música de fondo de forma nativa)
-            val audioAttributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_MEDIA)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                .build()
-            t.setAudioAttributes(audioAttributes)
-
             // Creamos una función interna/reutilizable justo antes del escuchador para restaurar el sonido original
             val finalizarAvisoConRetraso = Runnable {
                 try {

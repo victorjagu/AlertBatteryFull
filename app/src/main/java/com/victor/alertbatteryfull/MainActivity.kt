@@ -13,7 +13,9 @@ import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.provider.Settings
+import android.view.View
 import android.widget.Button
+import android.widget.LinearLayout
 import android.widget.RadioGroup
 import android.widget.SeekBar
 import android.widget.Switch
@@ -49,6 +51,8 @@ class MainActivity : Activity() {
     private val btnBatterySettings by lazy { findViewById<Button>(R.id.btn_battery_settings) }
     private val switchSoundDelay by lazy { findViewById<Switch>(R.id.switch_sound_delay) }
     private val switchIgnoreSilence by lazy { findViewById<Switch>(R.id.switch_ignore_silence) }
+    private val switchCustomVolume by lazy { findViewById<Switch>(R.id.switch_custom_volume)}
+    private val layoutCustomVolumeContainer by lazy { findViewById<LinearLayout>(R.id.layout_volume_container)}
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,6 +71,12 @@ class MainActivity : Activity() {
 
         // INTERRUPTOR PARA IGNORAR EL MODO SILENCIO/VIBRACION DEL MOVIL
         switchIgnoreSilence.setOnCheckedChangeListener { _, isChecked -> savePref("ignore_silence", isChecked) }
+
+        // INTERRUPTOR DE VOLUMEN PERSONALIZADO O DEL SISTEMA
+        switchCustomVolume.setOnCheckedChangeListener { _, isChecked -> 
+            savePref("custom_volume", isChecked)
+            updateCustomVolumeVisibility(isChecked)
+        }
 
         // INTERRUPTOR DEL BUCLE DE REPETICIÓN
         switchLoop.setOnCheckedChangeListener { _, isChecked -> savePref("loop", isChecked) }
@@ -303,6 +313,14 @@ class MainActivity : Activity() {
             .show()
     }
 
+    private fun updateCustomVolumeVisibility(show: Boolean) {
+        if (show) {
+            layoutCustomVolumeContainer.visibility = View.VISIBLE
+        } else {
+            layoutCustomVolumeContainer.visibility = View.GONE
+        }
+    }
+
     // UNIFICAMOS ESCRITURA DE VALORES EN DISCO
     private fun savePref(key: String, value: Boolean) = prefs.edit().putBoolean(key, value).apply()
     private fun savePref(key: String, value: Int) = prefs.edit().putInt(key, value).apply()
@@ -315,7 +333,11 @@ class MainActivity : Activity() {
             switchVibrate.isChecked = getBoolean("vibrate", true)
             switchSoundDelay.isChecked = getBoolean("sound_delay", false)
             switchIgnoreSilence.isChecked = getBoolean("ignore_silence", false)
-    
+
+            val isCustomVolume = getBoolean("custom_volume", true)
+            switchCustomVolume.isChecked = isCustomVolume
+            updateCustomVolumeVisibility(isCustomVolume)
+
             val pct = getInt("target_pct", 100)
             seekPercentage.progress = pct
             tvPercentageLabel.text = getString(R.string.ui_battery_target, pct)

@@ -20,14 +20,14 @@ class AudioService : Service() {
     private var pendingIntent: Intent? = null
     private var isSpeaking = false
     private val mainHandler = Handler(Looper.getMainLooper())
-    private var maxMusicVolume = 1 // Guardará el límite de hardware en RAM
+    private var maxMusicVol = 1 // Guardará el límite de hardware en RAM
     
     override fun onCreate() {
         super.onCreate()
         
         // Consultamos el volumen máximo del hardware UNA SOLA VEZ aquí
         val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        maxMusicVolume = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         
         // Inicializamos el motor TextToSpeech nativo de Google utilizando el contexto global de la aplicación
         // Lo hacemos en el onCreate del servicio para que el motor esté listo antes de recibir las órdenes acústicas

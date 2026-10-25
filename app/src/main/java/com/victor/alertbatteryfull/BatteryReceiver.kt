@@ -185,6 +185,7 @@ class BatteryReceiver : BroadcastReceiver() {
                 
                 // Si la app se desactivó o ya saltó la alarma, paramos el temporizador
                 if (!isEnabled || isAlertActive) {
+                    monitoringHandler?.removeCallbacksAndMessages(null)
                     monitoringHandler = null
                     return
                 }

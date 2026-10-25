@@ -34,19 +34,19 @@ class MainActivity : Activity() {
     // CONTROL DE TOASTS: Bandera lógica para identificar si se aceptó un permiso en esta interacción exacta
     private var isPermissionGrantedNow = false
     
-    // COMPONENTES VISUALES: Declaración de los interruptores y selectores de la pantalla
-    private lateinit var switchEnable: Switch
-    private lateinit var switchLoop: Switch
-    private lateinit var switchVibrate: Switch
-    private lateinit var seekPercentage: SeekBar
-    private lateinit var seekVolume: SeekBar
-    private lateinit var tvPercentageLabel: TextView
-    private lateinit var tvVolumeLabel: TextView
-    private lateinit var rgSoundType: RadioGroup
-    private lateinit var btnBatterySettings: Button
-    private lateinit var switchSoundDelay: Switch
-    private lateinit var switchIgnoreSilence: Switch
-    
+    // COMPONENTES VISUALES: Inicialización perezosa de bajo consumo (evita sobrecargar el arranque de la app) de los interruptores y selectores de la pantalla
+    private val switchEnable by lazy { findViewById<Switch>(R.id.switch_enable) }
+    private val switchLoop by lazy { findViewById<Switch>(R.id.switch_loop) }
+    private val switchVibrate by lazy { findViewById<Switch>(R.id.switch_vibrate) }
+    private val seekPercentage by lazy { findViewById<SeekBar>(R.id.seek_percentage) }
+    private val seekVolume by lazy { findViewById<SeekBar>(R.id.seek_volume) }
+    private val tvPercentageLabel by lazy { findViewById<TextView>(R.id.tv_percentage_label) }
+    private val tvVolumeLabel by lazy { findViewById<TextView>(R.id.tv_volume_label) }
+    private val rgSoundType by lazy { findViewById<RadioGroup>(R.id.rg_sound_type) }
+    private val btnBatterySettings by lazy { findViewById<Button>(R.id.btn_battery_settings) }
+    private val switchSoundDelay by lazy { findViewById<Switch>(R.id.switch_sound_delay) }
+    private val switchIgnoreSilence by lazy { findViewById<Switch>(R.id.switch_ignore_silence) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -58,19 +58,6 @@ class MainActivity : Activity() {
         
         // AUDIO DE NOTIFICACIONES: Sincroniza el slider físico con el canal del sistema
         volumeControlStream = android.media.AudioManager.STREAM_NOTIFICATION
-        
-        // ENLACES: Conectamos las variables con los ID de la interfaz XML
-        switchEnable = findViewById(R.id.switch_enable)
-        switchLoop = findViewById(R.id.switch_loop)
-        switchVibrate = findViewById(R.id.switch_vibrate)
-        seekPercentage = findViewById(R.id.seek_percentage)
-        seekVolume = findViewById(R.id.seek_volume)
-        tvPercentageLabel = findViewById(R.id.tv_percentage_label)
-        tvVolumeLabel = findViewById(R.id.tv_volume_label)
-        rgSoundType = findViewById(R.id.rg_sound_type)
-        btnBatterySettings = findViewById(R.id.btn_battery_settings)
-        switchSoundDelay = findViewById(R.id.switch_sound_delay)
-        switchIgnoreSilence = findViewById(R.id.switch_ignore_silence)
 
         // INTERRUPTOR DE RETARDO DE SONIDO
         switchSoundDelay.setOnCheckedChangeListener { _, isChecked -> savePref("sound_delay", isChecked) }
@@ -87,12 +74,17 @@ class MainActivity : Activity() {
         // CONTROL DE PORCENTAJE OBJETIVO (SeekBar con límites simplificados)
         seekPercentage.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
+                // Operación ultra-ligera: solo actualiza el texto en pantalla
                 val pct = if (progress < 1) 1 else progress
                 tvPercentageLabel.text = getString(R.string.ui_battery_target, pct)
-                prefs.edit().putInt("target_pct", pct).apply()
             }
             override fun onStartTrackingTouch(sb: SeekBar?) {}
-            override fun onStopTrackingTouch(sb: SeekBar?) {}
+            override fun onStopTrackingTouch(sb: SeekBar?) {
+                // Guarda en el disco del teléfono UNA SOLA VEZ cuando el usuario suelta el dedo
+                val pct = sb?.progress ?: 100
+                val finalPct = if (pct < 1) 1 else pct
+                prefs.edit().putInt("target_pct", finalPct).apply()
+            }
         })
 
         // INTERRUPTOR PRINCIPAL: Activa la app y arranca el flujo unificado
@@ -136,25 +128,27 @@ class MainActivity : Activity() {
         }
 
         // DESLIZADOR DE VOLUMEN CON EMISIÓN DE BEEP DE PRUEBA
+        // DESLIZADOR DE VOLUMEN OPTIMIZADO (Ahorro de CPU y batería)
         seekVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
-                // Actualizamos el número del volumen dinámicamente en la pantalla (Ej: 65%)
+                // Operación ligera: solo cambia el texto visual mientras mueves el dedo
                 tvVolumeLabel.text = getString(R.string.ui_volume_alert, progress)
-                // Registramos el valor en el almacenamiento interno
-                prefs.edit().putInt("volume", progress).apply()
             }
             override fun onStartTrackingTouch(sb: SeekBar?) {}
             override fun onStopTrackingTouch(sb: SeekBar?) {
-                // El usuario ha soltado la barra: calculamos el volumen final real
+                // El usuario soltó la barra: guardamos en disco y disparamos la prueba al mismo tiempo
                 val currentProgress = sb?.progress ?: 80
-                // Creamos la orden directa para encender nuestro servicio acústico especializado
+                
+                // 1. Guardado único en almacenamiento
+                prefs.edit().putInt("volume", currentProgress).apply()
+                
+                // 2. Ejecución del pitido de prueba
                 val serviceIntent = Intent(this@MainActivity, AudioService::class.java).apply {
-                    putExtra("sound_type", 1)                       // Tipo 1: Reproducir el Beep físico de hardware
-                    putExtra("volume", currentProgress)             // Le pasamos el volumen seleccionado por el usuario
-                    putExtra("target_pct", seekPercentage.progress) // Porcentaje actual de la interfaz
-                    putExtra("is_test", true)                       // Marcamos que es solo una prueba manual desde la pantalla
+                    putExtra("sound_type", 1)               
+                    putExtra("volume", currentProgress)   
+                    putExtra("target_pct", seekPercentage.progress) 
+                    putExtra("is_test", true)           
                 }
-                // Arrancamos el servicio ligero de forma nativa
                 startService(serviceIntent)
             }
         })

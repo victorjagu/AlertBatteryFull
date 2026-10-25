@@ -19,7 +19,8 @@ class AudioService : Service() {
     private var isTtsReady = false
     private var pendingIntent: Intent? = null
     private var isSpeaking = false
-
+    private val mainHandler = Handler(Looper.getMainLooper())
+    
     override fun onCreate() {
         super.onCreate()
         // Inicializamos el motor TextToSpeech nativo de Google utilizando el contexto global de la aplicación
@@ -121,16 +122,13 @@ class AudioService : Service() {
             t.setAudioAttributes(audioAttributes)
 
             // Creamos una función interna/reutilizable justo antes del escuchador para restaurar el sonido original
-            fun finalizarAvisoConRetraso() {
-                // Usamos postDelayed en lugar de post para dar un margen de 300ms al hardware
-                Handler(Looper.getMainLooper()).postDelayed({
-                    try {
-                        // Devolvemos el móvil al volumen que tenía el usuario antes del aviso
-                        am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
-                    } catch (e: Exception) {}
-                    isSpeaking = false
-                    stopSelf()
-                }, 300)
+            val finalizarAvisoConRetraso = Runnable {
+                try {
+                    // Devolvemos el móvil al volumen que tenía el usuario antes del aviso
+                    am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
+                } catch (e: Exception) {}
+                isSpeaking = false
+                stopSelf()
             }
 
             // 6. ESCUCHADOR PROFESIONAL: El motor nos avisará en el milisegundo exacto en que termine la frase
@@ -138,24 +136,24 @@ class AudioService : Service() {
                 override fun onStart(utteranceId: String?) {}
                 
                 override fun onDone(utteranceId: String?) {
-                    finalizarAvisoConRetraso()
+                    mainHandler.postDelayed(finalizarAvisoConRetraso, 300)
                 }
 
                 @Deprecated("Inutilizado en niveles de API modernos, pero obligatorio de declarar")
                 override fun onError(utteranceId: String?) {
-                    finalizarAvisoConRetraso()
+                    mainHandler.postDelayed(finalizarAvisoConRetraso, 300)
                 }
 
                 override fun onStop(utteranceId: String?, interrupted: Boolean) {
                     super.onStop(utteranceId, interrupted)
-                    finalizarAvisoConRetraso()
+                    mainHandler.postDelayed(finalizarAvisoConRetraso, 300)
                 }
             })
 
             // 7. Empaquetamos el ID de la alerta exigido por Android 14+ para sincronizar el escuchador
             val params = Bundle().apply {
                 putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "BatteryAlertID")
-                // NUEVO: Pasamos el volumen seleccionado convertido a la escala flotante nativa (0.0 a 1.0)
+                // Pasamos el volumen seleccionado convertido a la escala flotante nativa (0.0 a 1.0)
                 putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, targetVolume / 100f)
             }
 
@@ -165,46 +163,46 @@ class AudioService : Service() {
     }
 
     private fun playBeepAlert(am: AudioManager, originalVolume: Int, targetVolume: Int) {
+        // Declaramos la variable fuera del bloque para poder liberarla al final pase lo que pase
+        var toneGen: ToneGenerator? = null
+       
         try {
-            // 1. Subimos el volumen del sistema multimedia justo antes de reproducir el pitido
+            // Bloque interno para intentar ajustar el volumen multimedia al nivel deseado (subimos el volumen del sistema multimedia justo antes de reproducir el pitido)
             try {
                 val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
                 val computedVol = (targetVolume * maxMusicVol) / 100
                 am.setStreamVolume(AudioManager.STREAM_MUSIC, computedVol, 0)
-            } catch (e: Exception) {}
-    
-            // 2. Inicializamos el pitido pasándole el volumen nativo máximo (100) ya que controlamos el canal globalmente
-            val toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
-            
-            // 3. Emitimos un único pitido limpio de hardware con una duración de 250 milisegundos
-            toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 250)
-            
-            // 4. Programamos el retraso de 300ms para asegurar que termine de sonar completo
-            Handler(Looper.getMainLooper()).postDelayed({ 
-                try {
-                    // 5. Devolvemos el móvil al volumen que tenía el usuario originalmente
-                    am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
-                } catch (e: Exception) {}
-    
-                try {
-                    // Liberamos los controladores físicos de audio para que el chip de sonido pueda entrar en reposo
-                    toneGen.release() 
-                } catch (e: Exception) {}
                 
-                // Al terminar el proceso acústico, destruimos el servicio por completo de la memoria RAM
-                stopSelf()
-            }, 300)
-            
-        } catch (e: Exception) {
-            // En caso de un fallo inesperado de hardware, nos aseguramos de restaurar el volumen y apagar el servicio
+            // Si falla el ajuste de volumen, ignoramos el error para no colgar la app
+            } catch (e: Exception) {}    
+    
+            // Inicializamos el generador de tonos y emitimos un pitido de hardware de 250ms
+            toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
+            toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 250)
+
+     } catch (e: Exception) {
+            // Si hay un fallo físico con el chip de sonido, el catch evita que la aplicación se cierre (crash)
+
+    // El bloque FINALLY se ejecuta SIEMPRE, garantizando que el teléfono vuelva a la normalidad
+    } finally {
+        mainHandler.postDelayed({
             try {
+                // Devolvemos el móvil al volumen multimedia original que tenía el usuario
                 am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
-            } catch (ex: Exception) {}
+            } catch (e: Exception) {}
+            
+            try {
+                // Liberamos los controladores físicos de audio para que el chip de sonido entre en reposo
+                toneGen?.release()
+            } catch (e: Exception) {}
+            
+            // Destruimos el servicio por completo para que no consuma memoria RAM en segundo plano
             stopSelf()
-        }
+        }, 300) // Damos un margen de 300 milisegundos para asegurar que el pitido termine de sonar completo
     }
 
     override fun onDestroy() {
+        mainHandler.removeCallbacksAndMessages(null)
         // LIMPIEZA ABSOLUTA DE RAM: Al morir el servicio de forma definitiva, desconectamos el motor de voz por completo del sistema operativo
         try {
             tts?.stop()

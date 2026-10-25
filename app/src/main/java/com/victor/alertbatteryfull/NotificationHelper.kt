@@ -29,8 +29,8 @@ object NotificationHelper {
             action = "ACTION_CANCEL_ALERTS_MANUAL"
         }
         val deletePendingIntent = android.app.PendingIntent.getBroadcast(
-            context, 0, deleteIntent, 
-            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
+            context, 0, deleteIntent,
+            android.app.PendingIntent.FLAG_IMMUTABLE
         )
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)

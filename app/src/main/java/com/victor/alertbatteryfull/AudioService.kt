@@ -20,9 +20,15 @@ class AudioService : Service() {
     private var pendingIntent: Intent? = null
     private var isSpeaking = false
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var maxMusicVolume = 1 // Guardará el límite de hardware en RAM
     
     override fun onCreate() {
         super.onCreate()
+        
+        // Consultamos el volumen máximo del hardware UNA SOLA VEZ aquí
+        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        maxMusicVolume = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        
         // Inicializamos el motor TextToSpeech nativo de Google utilizando el contexto global de la aplicación
         // Lo hacemos en el onCreate del servicio para que el motor esté listo antes de recibir las órdenes acústicas
         tts = TextToSpeech(applicationContext) { status ->
@@ -45,7 +51,6 @@ class AudioService : Service() {
                     val targetVolume = if (isCustomVolume) {
                         intent.getIntExtra("volume", 80)
                     } else {
-                        val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
                         if (maxMusicVol > 0) (originalVolume * 100) / maxMusicVol else 80
                     }
                     executeVoiceAlert(am, originalVolume, targetVolume, targetPct)
@@ -72,7 +77,6 @@ class AudioService : Service() {
             val targetVolume = if (isCustomVolume) {
                 intent.getIntExtra("volume", 80)
             } else {
-                val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
                 if (maxMusicVol > 0) (originalVolume * 100) / maxMusicVol else 80
             }
 
@@ -219,7 +223,6 @@ class AudioService : Service() {
 
     private fun aplicarVolumenObjetivo(am: AudioManager, targetVolume: Int) {
         try {
-            val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
             val computedVol = (targetVolume * maxMusicVol) / 100
             am.setStreamVolume(AudioManager.STREAM_MUSIC, computedVol, 0)
         } catch (e: Exception) {}

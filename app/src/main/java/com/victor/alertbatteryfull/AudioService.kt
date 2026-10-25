@@ -39,8 +39,15 @@ class AudioService : Service() {
                 pendingIntent?.let { intent ->
                     val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
                     val originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
-                    val targetVolume = intent.getIntExtra("volume", 80)
                     val targetPct = intent.getIntExtra("target_pct", 100)
+                    val isCustomVolume = intent.getBooleanExtra("custom_volume", true)
+                    // Si el usuario quiere el volumen del sistema, calculamos su porcentaje actual equivalente
+                    val targetVolume = if (isCustomVolume) {
+                        intent.getIntExtra("volume", 80)
+                    } else {
+                        val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                        if (maxMusicVol > 0) (originalVolume * 100) / maxMusicVol else 80
+                    }
                     executeVoiceAlert(am, originalVolume, targetVolume, targetPct)
                     pendingIntent = null
                 }
@@ -53,13 +60,21 @@ class AudioService : Service() {
         if (intent != null) {
             // 2. Extraemos los parámetros enviados por la pantalla o por el receptor de batería
             val soundType = intent.getIntExtra("sound_type", 0)       // 0 = Voz, 1 = Beep
-            val targetVolume = intent.getIntExtra("volume", 80)       // Volumen elegido en nuestra barra
             val targetPct = intent.getIntExtra("target_pct", 100)     // Porcentaje actual de la alerta
+            val isCustomVolume = intent.getBooleanExtra("custom_volume", true) // volumen personalizado o el del sistema
             
             // 3. Accedemos al gestor de audio nativo del teléfono
             val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
             // 4. Consultamos el volumen multimedia (música) actual del dispositivo del usuario
             val originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+
+            // Si el usuario quiere el volumen del sistema, calculamos su porcentaje actual equivalente
+            val targetVolume = if (isCustomVolume) {
+                intent.getIntExtra("volume", 80)
+            } else {
+                val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                if (maxMusicVol > 0) (originalVolume * 100) / maxMusicVol else 80
+            }
 
             // Si el usuario tiene el volumen multimedia del móvil a cero (modo noche),
             // respetamos el silencio absoluto, no reproducimos acústica y detenemos el servicio de inmediato.

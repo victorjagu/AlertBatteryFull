@@ -28,6 +28,18 @@ class AudioService : Service() {
     override fun onCreate() {
         super.onCreate()
         
+        // Obtenemos canal indicado
+        val audioChannel = intent.getIntExtra("audio_channel", 0) // 0 = Media, 1 = Notification
+        
+        // Definimos el canal que usaremos
+        if (audioChannel == 1) {
+            selectedStreamType = AudioManager.STREAM_NOTIFICATION
+            selectedUsageAttribute = AudioAttributes.USAGE_NOTIFICATION_EVENT
+        } else {
+            selectedStreamType = AudioManager.STREAM_MUSIC
+            selectedUsageAttribute = AudioAttributes.USAGE_MEDIA
+        }
+            
         // Consultamos el volumen máximo del hardware UNA SOLA VEZ aquí
         val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         maxMusicVol = am.getStreamMaxVolume(selectedStreamType)
@@ -39,7 +51,7 @@ class AudioService : Service() {
                 isTtsReady = true
                 tts?.language = Locale.getDefault()
                 val audioAttributes = AudioAttributes.Builder()
-                    .setUsage(selectedStreamType)
+                    .setUsage(selectedUsageAttribute)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build()
                 tts?.setAudioAttributes(audioAttributes)
@@ -70,16 +82,6 @@ class AudioService : Service() {
             val soundType = intent.getIntExtra("sound_type", 0)       // 0 = Voz, 1 = Beep
             val targetPct = intent.getIntExtra("target_pct", 100)     // Porcentaje actual de la alerta
             val isCustomVolume = intent.getBooleanExtra("custom_volume", true) // volumen personalizado o el del sistema
-            val audioChannel = intent.getIntExtra("audio_channel", 0) // 0 = Media, 1 = Notification
-
-            // Definimos el canal que usaremos
-            if (audioChannel == 1) {
-                selectedStreamType = AudioManager.STREAM_NOTIFICATION
-                selectedUsageAttribute = AudioAttributes.USAGE_NOTIFICATION_EVENT
-            } else {
-                selectedStreamType = AudioManager.STREAM_MUSIC
-                selectedUsageAttribute = AudioAttributes.USAGE_MEDIA
-            }
             
             // 3. Accedemos al gestor de audio nativo del teléfono
             val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager

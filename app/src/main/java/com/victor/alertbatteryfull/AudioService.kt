@@ -21,13 +21,16 @@ class AudioService : Service() {
     private var isSpeaking = false
     private val mainHandler = Handler(Looper.getMainLooper())
     private var maxMusicVol = 1 // Guardará el límite de hardware en RAM
+    // Añade una variable global en el servicio para identificar el flujo de audio seleccionado
+    private var selectedStreamType = AudioManager.STREAM_MUSIC
+    private var selectedUsageAttribute = AudioAttributes.USAGE_MEDIA
     
     override fun onCreate() {
         super.onCreate()
         
         // Consultamos el volumen máximo del hardware UNA SOLA VEZ aquí
         val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        maxMusicVol = am.getStreamMaxVolume(selectedStreamType)
         
         // Inicializamos el motor TextToSpeech nativo de Google utilizando el contexto global de la aplicación
         // Lo hacemos en el onCreate del servicio para que el motor esté listo antes de recibir las órdenes acústicas
@@ -36,7 +39,7 @@ class AudioService : Service() {
                 isTtsReady = true
                 tts?.language = Locale.getDefault()
                 val audioAttributes = AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setUsage(selectedStreamType)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build()
                 tts?.setAudioAttributes(audioAttributes)
@@ -44,7 +47,7 @@ class AudioService : Service() {
                 // Si llegó una orden de voz mientras el motor se estaba encendiendo, la procesamos inmediatamente ahora
                 pendingIntent?.let { intent ->
                     val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                    val originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+                    val originalVolume = am.getStreamVolume(selectedStreamType)
                     val targetPct = intent.getIntExtra("target_pct", 100)
                     val isCustomVolume = intent.getBooleanExtra("custom_volume", true)
                     // Si el usuario quiere el volumen del sistema, calculamos su porcentaje actual equivalente
@@ -67,11 +70,21 @@ class AudioService : Service() {
             val soundType = intent.getIntExtra("sound_type", 0)       // 0 = Voz, 1 = Beep
             val targetPct = intent.getIntExtra("target_pct", 100)     // Porcentaje actual de la alerta
             val isCustomVolume = intent.getBooleanExtra("custom_volume", true) // volumen personalizado o el del sistema
+            val audioChannel = intent.getIntExtra("audio_channel", 0) // 0 = Media, 1 = Notification
+
+            // Definimos el canal que usaremos
+            if (audioChannel == 1) {
+                selectedStreamType = AudioManager.STREAM_NOTIFICATION
+                selectedUsageAttribute = AudioAttributes.USAGE_NOTIFICATION_EVENT
+            } else {
+                selectedStreamType = AudioManager.STREAM_MUSIC
+                selectedUsageAttribute = AudioAttributes.USAGE_MEDIA
+            }
             
             // 3. Accedemos al gestor de audio nativo del teléfono
             val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
             // 4. Consultamos el volumen multimedia (música) actual del dispositivo del usuario
-            val originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+            val originalVolume = am.getStreamVolume(selectedStreamType)
 
             // Si el usuario quiere el volumen del sistema, calculamos su porcentaje actual equivalente
             val targetVolume = if (isCustomVolume) {
@@ -134,7 +147,7 @@ class AudioService : Service() {
             val finalizarAvisoConRetraso = Runnable {
                 try {
                     // Devolvemos el móvil al volumen que tenía el usuario antes del aviso
-                    am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
+                    am.setStreamVolume(selectedStreamType, originalVolume, 0)
                 } catch (e: Exception) {}
                 isSpeaking = false
                 stopSelf()
@@ -179,7 +192,7 @@ class AudioService : Service() {
             aplicarVolumenObjetivo(am, targetVolume)
     
             // Inicializamos el generador de tonos y emitimos un pitido de hardware de 250ms
-            toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
+            toneGen = ToneGenerator(selectedStreamType, 100)
             toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 250)
 
         } catch (e: Exception) {
@@ -190,7 +203,7 @@ class AudioService : Service() {
             mainHandler.postDelayed({
                 try {
                     // Devolvemos el móvil al volumen multimedia original que tenía el usuario
-                    am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
+                    am.setStreamVolume(selectedStreamType, originalVolume, 0)
                 } catch (e: Exception) {}
                 
                 try {
@@ -224,7 +237,7 @@ class AudioService : Service() {
     private fun aplicarVolumenObjetivo(am: AudioManager, targetVolume: Int) {
         try {
             val computedVol = (targetVolume * maxMusicVol) / 100
-            am.setStreamVolume(AudioManager.STREAM_MUSIC, computedVol, 0)
+            am.setStreamVolume(selectedStreamType, computedVol, 0)
         } catch (e: Exception) {}
     }
 

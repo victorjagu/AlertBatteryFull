@@ -174,6 +174,7 @@ class MainActivity : Activity() {
                     putExtra("volume", currentProgress)   
                     putExtra("target_pct", seekPercentage.progress)
                     putExtra("custom_volume", switchCustomVolume.isChecked)
+                    putExtra("audio_channel", prefs.getInt("audio_channel", 0))
                 }
                 startService(serviceIntent)
             }
@@ -199,6 +200,7 @@ class MainActivity : Activity() {
                     putExtra("volume", currentVolume)        // Volumen seleccionado en la barra
                     putExtra("target_pct", currentTargetPct) // Porcentaje seleccionado en la barra
                     putExtra("custom_volume", switchCustomVolume.isChecked)    //Decimos si usar volumen del sistema o el especificado por el usuario
+                    putExtra("audio_channel", prefs.getInt("audio_channel", 0))
                 }
                 startService(serviceIntent)
                 

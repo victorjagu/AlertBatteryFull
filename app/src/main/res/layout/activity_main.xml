@@ -100,14 +100,14 @@
                 android:id="@+id/rb_channel_notification"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Volumen de notificación"
+                android:text="Notificación"
                 android:textColor="?android:attr/textColorPrimary"/>
 
             <RadioButton
                 android:id="@+id/rb_channel_media"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Volumen multimedia"
+                android:text="Multimedia"
                 android:textColor="?android:attr/textColorPrimary"/>
 
         </RadioGroup>
@@ -195,7 +195,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Nota: El volumen se reproduce por el canal multimedia (ej. música), salvo que esté a cero."
+                android:text="Nota: El volumen se reproduce por el canal indicado, salvo que esté a cero."
                 android:textSize="12sp"
                 android:textStyle="italic"
                 android:textColor="?android:attr/textColorSecondary"

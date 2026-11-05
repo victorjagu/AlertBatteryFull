@@ -28,22 +28,6 @@ class AudioService : Service() {
     override fun onCreate() {
         super.onCreate()
         
-        // Obtenemos canal indicado
-        val audioChannel = intent.getIntExtra("audio_channel", 0) // 0 = Media, 1 = Notification
-        
-        // Definimos el canal que usaremos
-        if (audioChannel == 1) {
-            selectedStreamType = AudioManager.STREAM_NOTIFICATION
-            selectedUsageAttribute = AudioAttributes.USAGE_NOTIFICATION_EVENT
-        } else {
-            selectedStreamType = AudioManager.STREAM_MUSIC
-            selectedUsageAttribute = AudioAttributes.USAGE_MEDIA
-        }
-            
-        // Consultamos el volumen máximo del hardware UNA SOLA VEZ aquí
-        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        maxMusicVol = am.getStreamMaxVolume(selectedStreamType)
-        
         // Inicializamos el motor TextToSpeech nativo de Google utilizando el contexto global de la aplicación
         // Lo hacemos en el onCreate del servicio para que el motor esté listo antes de recibir las órdenes acústicas
         tts = TextToSpeech(applicationContext) { status ->
@@ -76,6 +60,22 @@ class AudioService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Obtenemos canal indicado
+        val audioChannel = intent.getIntExtra("audio_channel", 0) // 0 = Media, 1 = Notification
+        
+        // Definimos el canal que usaremos
+        if (audioChannel == 1) {
+            selectedStreamType = AudioManager.STREAM_NOTIFICATION
+            selectedUsageAttribute = AudioAttributes.USAGE_NOTIFICATION_EVENT
+        } else {
+            selectedStreamType = AudioManager.STREAM_MUSIC
+            selectedUsageAttribute = AudioAttributes.USAGE_MEDIA
+        }
+
+        // Consultamos el volumen máximo del hardware UNA SOLA VEZ aquí
+        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        maxMusicVol = am.getStreamMaxVolume(selectedStreamType)
+        
         // 1. Verificamos que el paquete de datos recibido no sea nulo para evitar cierres inesperados
         if (intent != null) {
             // 2. Extraemos los parámetros enviados por la pantalla o por el receptor de batería

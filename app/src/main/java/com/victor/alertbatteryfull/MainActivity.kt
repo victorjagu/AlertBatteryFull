@@ -110,7 +110,6 @@ class MainActivity : Activity() {
             } else {
                 0
             }
-
             savePref("audio_channel", channel)
         }
 

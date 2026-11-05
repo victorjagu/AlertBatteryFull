@@ -121,7 +121,7 @@ class BatteryReceiver : BroadcastReceiver() {
                 // Si el tipo de sonido NO es silencioso (tipo 2) y la llave de tiempo permite sonar
                 if (soundType != 2 && isAudioAllowedToPlay) {
                     // Respetamos estrictamente si el móvil general está con el ringer en modo normal
-                    lanzarAudioService(context, soundType, targetVolume, targetPct)
+                    triggerAudioService(context, soundType, targetVolume, targetPct)
                 }
 
                 // Si el bucle sigue activo, volvemos a programar esta comprobación en 10 segundos
@@ -139,7 +139,7 @@ class BatteryReceiver : BroadcastReceiver() {
             loopHandler?.postDelayed({
                 if (isAlertActive) {
                     isAudioAllowedToPlay = true
-                    lanzarAudioService(context, soundType, targetVolume, targetPct)
+                    triggerAudioService(context, soundType, targetVolume, targetPct)
                 }
             }, 60000) // Retardo de 60 segundos exactos
         }
@@ -205,9 +205,10 @@ class BatteryReceiver : BroadcastReceiver() {
         monitoringHandler?.post(checkRunnable)
     }
 
-    private fun lanzarAudioService(context: Context, soundType: Int, targetVolume: Int, targetPct: Int) {
+    private fun triggerAudioService(context: Context, soundType: Int, targetVolume: Int, targetPct: Int) {
         val prefs = context.getSharedPreferences("prefs_battery", Context.MODE_PRIVATE)
         val ignoreSilence = prefs.getBoolean("ignore_silence", false)
+        val audioChannel = prefs.getInt("audio_channel", 0)
         val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
         if (ignoreSilence || am.ringerMode == AudioManager.RINGER_MODE_NORMAL) {
@@ -219,6 +220,7 @@ class BatteryReceiver : BroadcastReceiver() {
                     putExtra("target_pct", targetPct)   // El porcentaje real de carga
                     putExtra("is_test", false)          // Indicamos que es la alarma real, NO una prueba
                     putExtra("custom_volume", prefs.getBoolean("custom_volume", true))
+                    putExtra("audio_channel", audioChannel)
                 }
                 context.startService(serviceIntent)
             } catch (e: Exception) {}

@@ -1,6 +1,5 @@
 package com.victor.alertbatteryfull
 
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -17,7 +16,6 @@ class BatteryReceiver : BroadcastReceiver() {
 
     companion object {
         private const val NOTIFICATION_ID = 9911
-        private const val CHANNEL_ID = "battery_alert_channel"
         
         // Hilos ligeros y variables estáticas para controlar los bucles en memoria sin servicios pesados
         private var loopHandler: Handler? = null
@@ -100,7 +98,6 @@ class BatteryReceiver : BroadcastReceiver() {
         val useVibrate = prefs.getBoolean("vibrate", true) // Saber si quiere vibración
         val targetVolume = prefs.getInt("volume", 80)     // El volumen elegido en la barra
         val useSoundDelay = prefs.getBoolean("sound_delay", false) // El retardo de sonido de 1 minuto
-        val ignoreSilence = prefs.getBoolean("ignore_silence", false)    //ignorar el modo silencio/vibracion del movil
 
         // 1. Pintamos de inmediato la notificación visual nativa y eficiente que optimizamos
         NotificationHelper.showNotification(context, targetPct)

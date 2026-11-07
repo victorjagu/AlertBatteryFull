@@ -36,7 +36,7 @@
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="?android:attr/dividerVertical"
+            android:background="?android:attr/dividerHorizontal"
             android:layout_marginTop="8dp"
             android:layout_marginBottom="24dp" />
         <LinearLayout
@@ -63,7 +63,7 @@
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="?android:attr/dividerVertical"
+            android:background="?android:attr/dividerHorizontal"
             android:layout_marginBottom="24dp" />
         
         <!-- Porcentaje de Batería -->

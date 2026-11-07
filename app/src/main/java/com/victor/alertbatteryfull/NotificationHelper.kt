@@ -1,5 +1,6 @@
 package com.victor.alertbatteryfull
 
+import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
@@ -7,6 +8,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 
 object NotificationHelper {
+    private const val CHANNEL_ID = "battery_alerts"
     private const val NOTIFICATION_ID = 9911
 
     fun showNotification(context: Context, percentage: Int) {

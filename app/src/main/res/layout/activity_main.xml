@@ -26,7 +26,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:text="Alerta de Batería Cargada"
+            android:text="@string/ui_title_app"
             android:textSize="28sp"
             android:textStyle="bold"
             android:textColor="?android:attr/textColorPrimary"
@@ -37,7 +37,7 @@
             android:id="@+id/switch_enable"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="¿Activar aplicación?"
+            android:text="@string/ui_activate_app"
             android:textSize="18sp"
             android:textColor="?android:attr/textColorPrimary"
             android:layout_marginBottom="24dp"/>
@@ -47,7 +47,7 @@
             android:id="@+id/tv_percentage_label"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Avisar cuando la batería llegue al: 100%"
+            android:text="@string/ui_battery_target"
             android:textSize="16sp"
             android:textColor="?android:attr/textColorPrimary"/>
 
@@ -64,7 +64,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Tipo de aviso:"
+            android:text="@string/ui_alert_type"
             android:textSize="16sp"
             android:textStyle="bold"
             android:textColor="?android:attr/textColorPrimary"
@@ -75,9 +75,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="24dp">
-            <RadioButton android:id="@+id/rb_voice" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Alerta por voz" android:textColor="?android:attr/textColorPrimary"/>
-            <RadioButton android:id="@+id/rb_beep" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Beep" android:textColor="?android:attr/textColorPrimary"/>
-            <RadioButton android:id="@+id/rb_silent" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Solo notificación visual" android:textColor="?android:attr/textColorPrimary"/>
+            <RadioButton android:id="@+id/rb_voice" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/ui_alert_voice" android:textColor="?android:attr/textColorPrimary"/>
+            <RadioButton android:id="@+id/rb_beep" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/ui_alert_beep" android:textColor="?android:attr/textColorPrimary"/>
+            <RadioButton android:id="@+id/rb_silent" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/ui_alert_notif" android:textColor="?android:attr/textColorPrimary"/>
         </RadioGroup>
 
         <!-- Interruptor de retardo de sonido (sound_delay) -->
@@ -85,7 +85,7 @@
             android:id="@+id/switch_sound_delay"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Retardo de 1 min antes de sonar (voz o beep)"
+            android:text="@string/ui_sound_delay"
             android:textSize="16sp"
             android:textColor="?android:attr/textColorPrimary"
             android:layout_marginBottom="24dp"/>
@@ -95,7 +95,7 @@
             android:id="@+id/switch_loop"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Repetir aviso cada 10 segundos"
+            android:text="@string/ui_alert_loop"
             android:textSize="16sp"
             android:textColor="?android:attr/textColorPrimary"
             android:layout_marginBottom="24dp"/>
@@ -105,7 +105,7 @@
             android:id="@+id/switch_ignore_silence"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Sonar incluso si el móvil está en silencio/vibración"
+            android:text="@string/ui_ignore_silence"
             android:textSize="16sp"
             android:textColor="?android:attr/textColorPrimary"
             android:layout_marginBottom="24dp"/>
@@ -115,7 +115,7 @@
             android:id="@+id/switch_vibrate"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Activar vibración"
+            android:text="@string/ui_vibrate"
             android:textSize="16sp"
             android:textColor="?android:attr/textColorPrimary"
             android:layout_marginBottom="24dp"/>
@@ -125,7 +125,7 @@
             android:id="@+id/switch_custom_volume"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Fijar volumen, ignorando el del sistema:"
+            android:text="@string/ui_custom_volume_allow"
             android:textSize="16sp"
             android:textColor="?android:attr/textColorPrimary"
             android:checked="false"
@@ -143,7 +143,7 @@
                 android:id="@+id/tv_volume_label"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Volumen del aviso: 80%"
+                android:text="@string/ui_custom_volume_level"
                 android:textSize="16sp"
                 android:textColor="?android:attr/textColorPrimary"/>
 
@@ -163,7 +163,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Nota: Si el volumen de notificaciones está a cero, no sonará."
+                android:text="@string/ui_custom_volume_note"
                 android:textSize="12sp"
                 android:textStyle="italic"
                 android:textColor="?android:attr/textColorSecondary"
@@ -179,7 +179,7 @@
             android:id="@+id/btn_battery_settings"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Configurar Fiabilidad (permisos)"
+            android:text="@string/ui_button_settings"
             android:layout_marginBottom="16dp"/>
 
     </LinearLayout>

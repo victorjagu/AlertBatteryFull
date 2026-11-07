@@ -39,15 +39,25 @@
             android:background="?android:attr/dividerVertical"
             android:layout_marginTop="8dp"
             android:layout_marginBottom="24dp" />
-        <Switch
-            android:id="@+id/switch_enable"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/ui_activate_app"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:textColor="?android:attr/textColorPrimary"
-            android:layout_marginBottom="24dp"/>
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="24dp">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/ui_activate_app"
+                android:textSize="20sp"
+                android:textStyle="bold|italic"
+                android:textColor="?android:attr/textColorPrimary"
+                android:layout_marginEnd="12dp"/>
+            <Switch
+                android:id="@+id/switch_enable"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"

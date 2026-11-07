@@ -21,6 +21,7 @@ class AudioService : Service() {
     private var isSpeaking = false
     private val mainHandler = Handler(Looper.getMainLooper())
     private var maxMusicVol = 1 // Guardará el límite de hardware en RAM
+    private var audioStream = AudioManager.STREAM_MUSIC
     
     override fun onCreate() {
         super.onCreate()

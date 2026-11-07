@@ -33,37 +33,31 @@
             android:textColor="?android:attr/textColorPrimary"
             android:layout_marginBottom="24dp"/>
 
-        <!-- INTERRUPTOR PRINCIPAL DESTACADO EN TARJETA ESTÁNDAR -->
-        <androidx.cardview.widget.CardView
+        <!-- INTERRUPTOR PRINCIPAL -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="20dp"
+            android:gravity="center_vertical"
             android:layout_marginBottom="32dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="4dp">
+            android:background="?android:attr/selectableItemBackground">
 
-            <LinearLayout
-                android:layout_width="match_parent"
+            <TextView
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="20dp"
-                android:gravity="center_vertical">
+                android:layout_weight="1"
+                android:text="@string/ui_activate_app"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="?android:attr/textColorPrimary"
+                android:layout_marginEnd="16dp"/>
 
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/ui_activate_app"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="?android:attr/textColorPrimary"
-                    android:layout_marginEnd="16dp"/>
-
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/switch_enable"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switch_enable"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
 
         <!-- Interruptor Principal -->
         <!-- Switch

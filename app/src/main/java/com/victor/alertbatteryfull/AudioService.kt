@@ -45,7 +45,7 @@ class AudioService : Service() {
                 // Si llegó una orden de voz mientras el motor se estaba encendiendo, la procesamos inmediatamente ahora
                 pendingIntent?.let { intent ->
                     val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                    val originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+                    val originalVolume = am.getStreamVolume(audioStream)
                     val targetPct = intent.getIntExtra("target_pct", 100)
                     val isCustomVolume = intent.getBooleanExtra("custom_volume", true)
                     // Si el usuario quiere el volumen del sistema, calculamos su porcentaje actual equivalente
@@ -146,7 +146,7 @@ class AudioService : Service() {
             val finalizarAvisoConRetraso = Runnable {
                 try {
                     // Devolvemos el móvil al volumen que tenía el usuario antes del aviso
-                    am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
+                    am.setStreamVolume(audioStream, originalVolume, 0)
                 } catch (e: Exception) {}
                 isSpeaking = false
                 stopSelf()
@@ -191,7 +191,7 @@ class AudioService : Service() {
             aplicarVolumenObjetivo(am, targetVolume)
     
             // Inicializamos el generador de tonos y emitimos un pitido de hardware de 250ms
-            toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
+            toneGen = ToneGenerator(audioStream, 100)
             toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 250)
 
         } catch (e: Exception) {
@@ -202,7 +202,7 @@ class AudioService : Service() {
             mainHandler.postDelayed({
                 try {
                     // Devolvemos el móvil al volumen multimedia original que tenía el usuario
-                    am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
+                    am.setStreamVolume(audioStream, originalVolume, 0)
                 } catch (e: Exception) {}
                 
                 try {
@@ -236,7 +236,7 @@ class AudioService : Service() {
     private fun aplicarVolumenObjetivo(am: AudioManager, targetVolume: Int) {
         try {
             val computedVol = (targetVolume * maxMusicVol) / 100
-            am.setStreamVolume(AudioManager.STREAM_MUSIC, computedVol, 0)
+            am.setStreamVolume(audioStream, computedVol, 0)
         } catch (e: Exception) {}
     }
 

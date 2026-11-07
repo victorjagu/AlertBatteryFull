@@ -168,14 +168,14 @@ class MainActivity : Activity() {
                 savePref("volume", currentProgress)
                 
                 // 2. Ejecución del pitido de prueba
-                val serviceIntent = Intent(this@MainActivity, AudioService::class.java).apply {
-                    putExtra("sound_type", 1)               
-                    putExtra("volume", currentProgress)   
-                    putExtra("target_pct", seekPercentage.progress)
-                    putExtra("custom_volume", switchCustomVolume.isChecked)
-                    putExtra("audio_channel", prefs.getInt("audio_channel", 0))
-                }
-                startService(serviceIntent)
+                AlertCoordinator.startAudio(
+                    context = this@MainActivity,
+                    soundType = 1,
+                    volume = currentProgress,
+                    targetPct = seekPercentage.progress,
+                    customVolume = switchCustomVolume.isChecked,
+                    audioChannel = prefs.getInt("audio_channel", 0)
+                )
             }
         })
 
@@ -193,15 +193,14 @@ class MainActivity : Activity() {
             val currentTargetPct = seekPercentage.progress
 
             // Invoca al servicio de audio de forma unificada (0 = Voz, 1 = Beep)
-            if (type == 0 || type == 1) {
-                val serviceIntent = Intent(this, AudioService::class.java).apply {
-                    putExtra("sound_type", type)             // Volumen seleccionado en la barra
-                    putExtra("volume", currentVolume)        // Volumen seleccionado en la barra
-                    putExtra("target_pct", currentTargetPct) // Porcentaje seleccionado en la barra
-                    putExtra("custom_volume", switchCustomVolume.isChecked)    //Decimos si usar volumen del sistema o el especificado por el usuario
-                    putExtra("audio_channel", prefs.getInt("audio_channel", 0))
-                }
-                startService(serviceIntent)
+            AlertCoordinator.startAudio(
+                context = this,
+                soundType = type,
+                volume = currentVolume,
+                targetPct = currentTargetPct,
+                customVolume = switchCustomVolume.isChecked,
+                audioChannel = prefs.getInt("audio_channel", 0)
+            )
                 
             // CASO SOLO MENSAJE: Muestra en la ventana el texto idéntico que se enviará como notificación
             } else if (type == 2) {

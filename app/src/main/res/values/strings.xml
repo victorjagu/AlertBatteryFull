@@ -3,10 +3,21 @@
     <string name="app_name">Alert Battery</string>
     
     <!-- Etiquetas de la Interfaz Principal -->
-    <string name="ui_battery_target">Porcentaje objetivo: %1$d%%</string>
-    <string name="ui_volume_alert">Volumen del aviso: %1$d%%</string>
+    <string name="ui_title_app">Alerta de Batería Cargada</string>
+    <string name="ui_activate_app">¿Activar aplicación?</string>    
+    <string name="ui_battery_target">Avisar cuando la batería llegue al: %1$d%%</string>
+    <string name="ui_alert_type">Tipo de aviso:</string>
+    <string name="ui_alert_voice">Alerta por voz</string>
+    <string name="ui_alert_beep">Beep</string>
+    <string name="ui_alert_notif">Solo notificación visual</string>
     <string name="ui_sound_delay">Retardo de 1 min antes de sonar (voz o beep)</string>
+    <string name="ui_alert_loop">Repetir aviso cada 10 segundos</string>
     <string name="ui_ignore_silence">Sonar incluso si el móvil está en silencio/vibración</string>
+    <string name="ui_vibrate">Activar vibración</string>
+    <string name="ui_custom_volume_allow">Fijar volumen, ignorando el del sistema:</string>
+    <string name="ui_custom_volume_level">Volumen del aviso: %1$d%%</string>
+    <string name="ui_custom_volume_note">Nota: Si el volumen de notificaciones está a cero, no sonará.</string>
+    <string name="ui_button_settings">Configurar Fiabilidad (permisos)</string>
     
     <!-- Diálogos de Permisos y Flujo de Configuración -->
     <string name="dialog_permission_required_title">Permiso Requerido</string>

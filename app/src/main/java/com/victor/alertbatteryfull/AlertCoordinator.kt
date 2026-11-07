@@ -1,4 +1,3 @@
-
 package com.victor.alertbatteryfull
 
 import android.content.Context

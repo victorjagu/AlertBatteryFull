@@ -80,6 +80,16 @@
             <RadioButton android:id="@+id/rb_silent" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Solo notificación visual" android:textColor="?android:attr/textColorPrimary"/>
         </RadioGroup>
 
+        <!-- Interruptor de retardo de sonido (sound_delay) -->
+        <Switch
+            android:id="@+id/switch_sound_delay"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Retardo de 1 min antes de sonar (voz o beep)"
+            android:textSize="16sp"
+            android:textColor="?android:attr/textColorPrimary"
+            android:layout_marginBottom="24dp"/>
+        
         <!-- Bucle de repetición -->
         <Switch
             android:id="@+id/switch_loop"
@@ -90,22 +100,12 @@
             android:textColor="?android:attr/textColorPrimary"
             android:layout_marginBottom="24dp"/>
 
-        <!-- Interruptor de retardo de sonido (sound_delay) -->
-        <Switch
-            android:id="@+id/switch_sound_delay"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/ui_sound_delay"
-            android:textSize="16sp"
-            android:textColor="?android:attr/textColorPrimary"
-            android:layout_marginBottom="24dp"/>
-
         <!-- Interruptor para ignorar silencio/vibración -->
         <Switch
             android:id="@+id/switch_ignore_silence"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/ui_ignore_silence"
+            android:text="Sonar incluso si el móvil está en silencio/vibración"
             android:textSize="16sp"
             android:textColor="?android:attr/textColorPrimary"
             android:layout_marginBottom="24dp"/>

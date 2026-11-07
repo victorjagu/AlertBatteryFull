@@ -139,8 +139,7 @@ class MainActivity : Activity() {
             }
         }
 
-        // DESLIZADOR DE VOLUMEN CON EMISIÓN DE BEEP DE PRUEBA
-        // DESLIZADOR DE VOLUMEN OPTIMIZADO (Ahorro de CPU y batería)
+        // DESLIZADOR DE VOLUMEN OPTIMIZADO
         seekVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
                 // Operación ligera: solo cambia el texto visual mientras mueves el dedo

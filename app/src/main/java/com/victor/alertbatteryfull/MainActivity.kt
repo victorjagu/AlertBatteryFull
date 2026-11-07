@@ -143,7 +143,7 @@ class MainActivity : Activity() {
         seekVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
                 // Operación ligera: solo cambia el texto visual mientras mueves el dedo
-                tvVolumeLabel.text = getString(R.string.ui_volume_alert, progress)
+                tvVolumeLabel.text = getString(R.string.ui_custom_volume_level, progress)
             }
             override fun onStartTrackingTouch(sb: SeekBar?) {}
             override fun onStopTrackingTouch(sb: SeekBar?) {
@@ -342,7 +342,7 @@ class MainActivity : Activity() {
             
             val vol = getInt("volume", 80)
             seekVolume.progress = vol
-            tvVolumeLabel.text = getString(R.string.ui_volume_alert, vol)
+            tvVolumeLabel.text = getString(R.string.ui_custom_volume_level, vol)
             
             rgSoundType.check(when (getInt("sound_type", 0)) {
                 1 -> R.id.rb_beep

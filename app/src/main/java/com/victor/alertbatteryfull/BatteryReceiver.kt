@@ -1,6 +1,5 @@
 package com.victor.alertbatteryfull
 
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -17,7 +16,6 @@ class BatteryReceiver : BroadcastReceiver() {
 
     companion object {
         private const val NOTIFICATION_ID = 9911
-        private const val CHANNEL_ID = "battery_alert_channel"
         
         // Hilos ligeros y variables estáticas para controlar los bucles en memoria sin servicios pesados
         private var loopHandler: Handler? = null
@@ -116,12 +114,12 @@ class BatteryReceiver : BroadcastReceiver() {
         loopRunnable = object : Runnable {
             override fun run() {
                 // Si el usuario activó la vibración, ejecutamos el latido de hardware de forma atómica
-                if (useVibrate) executeVibration(context)
+                if (useVibrate) triggerVibration(context)
 
                 // Si el tipo de sonido NO es silencioso (tipo 2) y la llave de tiempo permite sonar
                 if (soundType != 2 && isAudioAllowedToPlay) {
                     // Respetamos estrictamente si el móvil general está con el ringer en modo normal
-                    lanzarAudioService(context, soundType, targetVolume, targetPct)
+                    triggerAudioService(context, soundType, targetVolume, targetPct)
                 }
 
                 // Si el bucle sigue activo, volvemos a programar esta comprobación en 10 segundos
@@ -139,13 +137,13 @@ class BatteryReceiver : BroadcastReceiver() {
             loopHandler?.postDelayed({
                 if (isAlertActive) {
                     isAudioAllowedToPlay = true
-                    lanzarAudioService(context, soundType, targetVolume, targetPct)
+                    triggerAudioService(context, soundType, targetVolume, targetPct)
                 }
             }, 60000) // Retardo de 60 segundos exactos
         }
     }
 
-    private fun executeVibration(context: Context) {
+    private fun triggerVibration(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
             vibratorManager?.defaultVibrator?.vibrate(android.os.VibrationEffect.createOneShot(400, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
@@ -205,7 +203,7 @@ class BatteryReceiver : BroadcastReceiver() {
         monitoringHandler?.post(checkRunnable)
     }
 
-    private fun lanzarAudioService(context: Context, soundType: Int, targetVolume: Int, targetPct: Int) {
+    private fun triggerAudioService(context: Context, soundType: Int, targetVolume: Int, targetPct: Int) {
         val prefs = context.getSharedPreferences("prefs_battery", Context.MODE_PRIVATE)
         val ignoreSilence = prefs.getBoolean("ignore_silence", false)
         val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager

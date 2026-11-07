@@ -128,7 +128,6 @@
             android:text="@string/ui_custom_volume_allow"
             android:textSize="16sp"
             android:textColor="?android:attr/textColorPrimary"
-            android:checked="false"
             android:layout_marginBottom="16dp"/>
 
         <!-- CONTENEDOR DE VOLUMEN: Agrupa la barra y la nota para ocultarlas juntas -->

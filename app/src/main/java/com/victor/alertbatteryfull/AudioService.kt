@@ -69,10 +69,21 @@ class AudioService : Service() {
             val targetPct = intent.getIntExtra("target_pct", 100)     // Porcentaje actual de la alerta
             val isCustomVolume = intent.getBooleanExtra("custom_volume", true) // volumen personalizado o el del sistema
             
-            // 3. Accedemos al gestor de audio nativo del teléfono
+            // 3. Accedemos al gestor de audio del teléfono
             val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            // 4. Consultamos el volumen multimedia (música) actual del dispositivo del usuario
-            val originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+            
+            // 4. Seleccionamos el canal de audio configurado por el usuario
+            val audioChannel = intent.getIntExtra("audio_channel", 0)
+            
+            audioStream = if (audioChannel == 1) {
+                AudioManager.STREAM_NOTIFICATION
+            } else {
+                AudioManager.STREAM_MUSIC
+            }
+            
+            // 5. Consultamos el volumen máximo y el volumen actual del canal seleccionado
+            maxMusicVol = am.getStreamMaxVolume(audioStream)
+            val originalVolume = am.getStreamVolume(audioStream)
 
             // Si el usuario quiere el volumen del sistema, calculamos su porcentaje actual equivalente
             val targetVolume = if (isCustomVolume) {

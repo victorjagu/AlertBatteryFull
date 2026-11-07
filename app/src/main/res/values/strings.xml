@@ -12,7 +12,7 @@
     <string name="ui_alert_notif">Solo notificación visual</string>
     <string name="ui_sound_delay">Retardo de 1 min antes de sonar (voz o beep)</string>
     <string name="ui_alert_loop">Repetir aviso cada 10 segundos</string>
-    <string name="ui_ignore_silence">Sonar incluso si el móvil está en silencio/vibración</string>
+    <string name="ui_ignore_silence">Sonar incluso si el móvil está sin sonido</string>
     <string name="ui_vibrate">Activar vibración</string>
     <string name="ui_custom_volume_allow">Fijar volumen, ignorando el del sistema:</string>
     <string name="ui_custom_volume_level">Volumen del aviso: %1$d%%</string>

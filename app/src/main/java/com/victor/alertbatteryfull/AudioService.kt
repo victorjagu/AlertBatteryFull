@@ -37,7 +37,13 @@ class AudioService : Service() {
                 isTtsReady = true
                 tts?.language = Locale.getDefault()
                 val audioAttributes = AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setUsage(
+                        if (audioStream == AudioManager.STREAM_NOTIFICATION) {
+                            AudioAttributes.USAGE_NOTIFICATION
+                        } else {
+                            AudioAttributes.USAGE_MEDIA
+                        }
+                    )
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build()
                 tts?.setAudioAttributes(audioAttributes)
@@ -80,7 +86,19 @@ class AudioService : Service() {
             } else {
                 AudioManager.STREAM_MUSIC
             }
-            
+
+            val audioAttributes = AudioAttributes.Builder()
+                .setUsage(
+                    if (audioStream == AudioManager.STREAM_NOTIFICATION) {
+                        AudioAttributes.USAGE_NOTIFICATION
+                    } else {
+                        AudioAttributes.USAGE_MEDIA
+                    }
+                )
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+            tts?.setAudioAttributes(audioAttributes)
+
             // 5. Consultamos el volumen máximo y el volumen actual del canal seleccionado
             maxMusicVol = am.getStreamMaxVolume(audioStream)
             val originalVolume = am.getStreamVolume(audioStream)

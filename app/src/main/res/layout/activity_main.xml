@@ -85,7 +85,7 @@
             android:id="@+id/switch_loop"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Repetir alerta cada 10 segundos"
+            android:text="Repetir aviso cada 10 segundos"
             android:textSize="16sp"
             android:textColor="?android:attr/textColorPrimary"
             android:layout_marginBottom="24dp"/>
@@ -115,7 +115,7 @@
             android:id="@+id/switch_vibrate"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Activar vibración (sobrescribe el valor del sistema)"
+            android:text="Activar vibración"
             android:textSize="16sp"
             android:textColor="?android:attr/textColorPrimary"
             android:layout_marginBottom="24dp"/>
@@ -125,7 +125,7 @@
             android:id="@+id/switch_custom_volume"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Ignorar volumen del sistema, fijando uno personalizado:"
+            android:text="Fijar volumen, ignorando el del sistema:"
             android:textSize="16sp"
             android:textColor="?android:attr/textColorPrimary"
             android:checked="false"
@@ -163,7 +163,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Nota: El volumen se reproduce por el canal indicado, salvo que esté a cero."
+                android:text="Nota: Si el volumen de notificaciones está a cero, no sonará."
                 android:textSize="12sp"
                 android:textStyle="italic"
                 android:textColor="?android:attr/textColorSecondary"

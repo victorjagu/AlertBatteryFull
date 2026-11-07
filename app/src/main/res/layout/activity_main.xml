@@ -32,41 +32,27 @@
             android:textColor="?android:attr/textColorPrimary"
             android:layout_marginBottom="24dp"/>
 
-        <!-- INTERRUPTOR PRINCIPAL -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:padding="20dp"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="32dp"
-            android:background="?android:attr/selectableItemBackground">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/ui_activate_app"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="?android:attr/textColorPrimary"
-                android:layout_marginEnd="16dp"/>
-
-            <Switch
-                android:id="@+id/switch_enable"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-        </LinearLayout>
-
         <!-- Interruptor Principal -->
-        <!-- Switch
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="?android:attr/dividerVertical"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="24dp" />
+        <Switch
             android:id="@+id/switch_enable"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/ui_activate_app"
             android:textSize="18sp"
+            android:textStyle="bold"
             android:textColor="?android:attr/textColorPrimary"
-            android:layout_marginBottom="24dp"/> -->
+            android:layout_marginBottom="24dp"/>
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="?android:attr/dividerVertical"
+            android:layout_marginBottom="24dp" />
         
         <!-- Porcentaje de Batería -->
         <TextView

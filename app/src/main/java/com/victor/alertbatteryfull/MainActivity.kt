@@ -116,9 +116,10 @@ class MainActivity : Activity() {
             savePref("vibrate", isChecked)
 
             if (isChecked) {
+                // Solicita una prueba de vibración sin reproducir sonido.
                 val vibrationIntent = Intent(this, AudioService::class.java).apply {
-                    // Solicita exclusivamente una vibración de prueba.
-                    action = AudioService.ACTION_VIBRATION_ALERT
+                    putExtra("vibrate", true)
+                    putExtra("play_sound", false)
                 }
                 startService(vibrationIntent)
             }

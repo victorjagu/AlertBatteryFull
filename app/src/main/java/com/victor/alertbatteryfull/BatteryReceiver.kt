@@ -4,13 +4,9 @@ import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.media.AudioManager
 import android.os.BatteryManager
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.os.Vibrator
-import android.os.VibratorManager
 
 class BatteryReceiver : BroadcastReceiver() {
 
@@ -98,7 +94,6 @@ class BatteryReceiver : BroadcastReceiver() {
         val useVibrate = prefs.getBoolean("vibrate", true) // Saber si quiere vibración
         val targetVolume = prefs.getInt("volume", 80)     // El volumen elegido en la barra
         val useSoundDelay = prefs.getBoolean("sound_delay", false) // El retardo de sonido de 1 minuto
-        val ignoreSilence = prefs.getBoolean("ignore_silence", false)    //ignorar el modo silencio/vibracion del movil
 
         // 1. Pintamos de inmediato la notificación visual nativa y eficiente que optimizamos
         NotificationHelper.showNotification(context, targetPct)
@@ -109,7 +104,7 @@ class BatteryReceiver : BroadcastReceiver() {
         }
         loopHandler?.removeCallbacksAndMessages(null)
         
-        var isAudioAllowedToPlay = ! useSoundDelay
+        var isAudioAllowedToPlay = !useSoundDelay
 
         loopRunnable = object : Runnable {
             override fun run() {

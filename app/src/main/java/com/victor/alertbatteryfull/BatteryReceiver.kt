@@ -133,7 +133,14 @@ class BatteryReceiver : BroadcastReceiver() {
             loopHandler?.postDelayed({
                 if (isAlertActive) {
                     isAudioAllowedToPlay = true
-                    triggerAudioService(context, soundType, targetVolume, targetPct)
+                    triggerAudioService(
+                        context,
+                        soundType,
+                        targetVolume,
+                        targetPct,
+                        useVibrate,
+                        soundType != 2 && isAudioAllowedToPlay
+                    )
                 }
             }, 60000) // Retardo de 60 segundos exactos
         }

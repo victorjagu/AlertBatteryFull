@@ -58,7 +58,16 @@ class AudioService : Service() {
             val soundType = intent.getIntExtra("sound_type", 0)       // 0 = Voz, 1 = Beep
             val targetVolume = intent.getIntExtra("volume", 80)       // Volumen elegido en nuestra barra
             val targetPct = intent.getIntExtra("target_pct", 100)     // Porcentaje actual de la alerta
+
+            // Comprueba si la orden recibida solicita ejecutar una vibración.
+            val shouldVibrate = intent.getBooleanExtra("vibrate", false)
             
+            // Ejecuta la vibración antes de comprobar el volumen,
+            // para que el volumen a cero no impida realizar el aviso háptico.
+            if (shouldVibrate) {
+                executeVibrationAlert()
+            }
+
             // 3. Accedemos al gestor de audio nativo del teléfono
             val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
             // 4. Consultamos el volumen multimedia (música) actual del dispositivo del usuario

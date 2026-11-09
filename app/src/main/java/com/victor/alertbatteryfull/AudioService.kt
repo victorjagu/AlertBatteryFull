@@ -3,6 +3,9 @@ package com.victor.alertbatteryfull
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.os.VibrationAttributes
+import android.os.VibrationEffect
+import android.os.VibratorManager
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.ToneGenerator
@@ -184,7 +187,29 @@ class AudioService : Service() {
             }, 300) // Damos un margen de 300 milisegundos para asegurar que el pitido termine de sonar completo
         }
     }
+
+    // Ejecuta una vibración
+    private fun executeVibrationAlert() {
     
+        // Obtiene el administrador de vibración del dispositivo.
+        val vibratorManager = getSystemService(VibratorManager::class.java) ?: return
+    
+        // Obtiene el vibrador principal del dispositivo.
+        val vibrator = vibratorManager.defaultVibrator
+    
+        // Comprueba que el dispositivo dispone de un vibrador.
+        if (!vibrator.hasVibrator()) return
+    
+        // Crea una vibración de 200 milisegundos con la amplitud predeterminada.
+        val effect = VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE)
+    
+        // Clasifica la vibración como una alarma del sistema.
+        val attributes = VibrationAttributes.createForUsage(VibrationAttributes.USAGE_ALARM)
+    
+        // Ejecuta la vibración con el efecto y los atributos definidos.
+        vibrator.vibrate(effect, attributes)
+    }
+
     override fun onDestroy() {
         mainHandler.removeCallbacksAndMessages(null)
         // LIMPIEZA ABSOLUTA DE RAM: Al morir el servicio de forma definitiva, desconectamos el motor de voz por completo del sistema operativo

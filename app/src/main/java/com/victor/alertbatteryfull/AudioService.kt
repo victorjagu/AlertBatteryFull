@@ -223,8 +223,8 @@ class AudioService : Service() {
         // Comprueba que el dispositivo dispone de un vibrador.
         if (!vibrator.hasVibrator()) return
     
-        // Crea una vibración de 200 milisegundos con la amplitud predeterminada.
-        val effect = VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE)
+        // Crea una vibración de X milisegundos con la amplitud predeterminada.
+        val effect = VibrationEffect.createOneShot(400, VibrationEffect.DEFAULT_AMPLITUDE)
     
         // Clasifica la vibración como una alarma del sistema.
         val attributes = VibrationAttributes.createForUsage(VibrationAttributes.USAGE_ALARM)

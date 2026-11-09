@@ -18,6 +18,12 @@ import java.util.Locale
 
 class AudioService : Service() {
 
+    // Identificador de la orden que solicita ejecutar únicamente una vibración.
+    companion object {
+        const val ACTION_VIBRATION_ALERT =
+            "com.victor.alertbatteryfull.ACTION_VIBRATION_ALERT"
+    }
+    
     private var tts: TextToSpeech? = null
     private var isTtsReady = false
     private var pendingIntent: Intent? = null
@@ -52,63 +58,80 @@ class AudioService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // 1. Verificamos que el paquete de datos recibido no sea nulo para evitar cierres inesperados
-        if (intent != null) {
-            // 2. Extraemos los parámetros enviados por la pantalla o por el receptor de batería
-            val soundType = intent.getIntExtra("sound_type", 0)       // 0 = Voz, 1 = Beep
-            val targetVolume = intent.getIntExtra("volume", 80)       // Volumen elegido en nuestra barra
-            val targetPct = intent.getIntExtra("target_pct", 100)     // Porcentaje actual de la alerta
 
-            // Comprueba si la orden recibida solicita ejecutar una vibración.
-            val shouldVibrate = intent.getBooleanExtra("vibrate", false)
-            
-            // Ejecuta la vibración antes de comprobar el volumen,
-            // para que el volumen a cero no impida realizar el aviso háptico.
-            if (shouldVibrate) {
-                executeVibrationAlert()
-            }
-
-            // 3. Accedemos al gestor de audio nativo del teléfono
-            val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            // 4. Consultamos el volumen multimedia (música) actual del dispositivo del usuario
-            val originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
-
-            // Si el usuario tiene el volumen multimedia del móvil a cero (modo noche),
-            // respetamos el silencio absoluto, no reproducimos acústica y detenemos el servicio de inmediato.
-            if (originalVolume == 0) {
-                stopSelf() // El servicio se auto-destruye y se borra de la RAM al instante
-                return START_NOT_STICKY
-            }
-
-            // Evitamos que el bucle repetitivo interrumpa si la app ya está hablando
-            if (soundType == 0 && isSpeaking) {
-                return START_STICKY
-            }
-            
-            // 5. Si el volumen del móvil es mayor que cero, ejecutamos la acción correspondiente
-            when (soundType) {
-                0 -> {    // Lanzamos Voz
-                    // Si el motor de Google ya está listo en el sistema, habla inmediatamente
-                    if (isTtsReady) {
-                        isSpeaking = true
-                        executeVoiceAlert(am, originalVolume, targetVolume, targetPct)
-                    } else {
-                        // Si el motor aún se está conectando de fondo, guardamos este intento para lanzarlo al revivir
-                        pendingIntent = intent
-                    }
-                }
-                1 -> {    // Lanzar el Pitido (Beep)
-                    executeBeepAlert(am, originalVolume, targetVolume)
-                }
-                else -> stopSelf() // Por seguridad, si llega un tipo desconocido, nos apagamos
-            }
+        // Comprobamos si el servicio ha recibido una orden exclusiva de vibración.
+        if (intent?.action == ACTION_VIBRATION_ALERT) {
+        
+            // Ejecutamos la vibración.
+            executeVibrationAlert()
+        
+            // Cerramos esta ejecución del servicio después de realizar la vibración.
+            stopSelf(startId)
+        
+            // Indicamos que esta orden no necesita que Android reinicie el servicio.
+            return START_NOT_STICKY
+        
         } else {
-            // Si el servicio se inició por error sin datos, se apaga de inmediato para ahorrar energía
-            stopSelf()
-        }
 
-        // Retornamos STICKY para que Android 14+ mantenga el proceso prioritario mientras la app habla de fondo
-        return START_STICKY
+            // 1. Verificamos que el paquete de datos recibido no sea nulo para evitar cierres inesperados
+            if (intent != null) {
+                // 2. Extraemos los parámetros enviados por la pantalla o por el receptor de batería
+                val soundType = intent.getIntExtra("sound_type", 0)       // 0 = Voz, 1 = Beep
+                val targetVolume = intent.getIntExtra("volume", 80)       // Volumen elegido en nuestra barra
+                val targetPct = intent.getIntExtra("target_pct", 100)     // Porcentaje actual de la alerta
+    
+                // Comprueba si la orden recibida solicita ejecutar una vibración.
+                val shouldVibrate = intent.getBooleanExtra("vibrate", false)
+                
+                // Ejecuta la vibración antes de comprobar el volumen,
+                // para que el volumen a cero no impida realizar el aviso háptico.
+                if (shouldVibrate) {
+                    executeVibrationAlert()
+                }
+    
+                // 3. Accedemos al gestor de audio nativo del teléfono
+                val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                // 4. Consultamos el volumen multimedia (música) actual del dispositivo del usuario
+                val originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+    
+                // Si el usuario tiene el volumen multimedia del móvil a cero (modo noche),
+                // respetamos el silencio absoluto, no reproducimos acústica y detenemos el servicio de inmediato.
+                if (originalVolume == 0) {
+                    stopSelf() // El servicio se auto-destruye y se borra de la RAM al instante
+                    return START_NOT_STICKY
+                }
+    
+                // Evitamos que el bucle repetitivo interrumpa si la app ya está hablando
+                if (soundType == 0 && isSpeaking) {
+                    return START_STICKY
+                }
+                
+                // 5. Si el volumen del móvil es mayor que cero, ejecutamos la acción correspondiente
+                when (soundType) {
+                    0 -> {    // Lanzamos Voz
+                        // Si el motor de Google ya está listo en el sistema, habla inmediatamente
+                        if (isTtsReady) {
+                            isSpeaking = true
+                            executeVoiceAlert(am, originalVolume, targetVolume, targetPct)
+                        } else {
+                            // Si el motor aún se está conectando de fondo, guardamos este intento para lanzarlo al revivir
+                            pendingIntent = intent
+                        }
+                    }
+                    1 -> {    // Lanzar el Pitido (Beep)
+                        executeBeepAlert(am, originalVolume, targetVolume)
+                    }
+                    else -> stopSelf() // Por seguridad, si llega un tipo desconocido, nos apagamos
+                }
+            } else {
+                // Si el servicio se inició por error sin datos, se apaga de inmediato para ahorrar energía
+                stopSelf()
+            }
+    
+            // Retornamos STICKY para que Android 14+ mantenga el proceso prioritario mientras la app habla de fondo
+            return START_STICKY
+
+        }
     }
 
     private fun executeVoiceAlert(am: AudioManager, originalVolume: Int, targetVolume: Int, pct: Int) {

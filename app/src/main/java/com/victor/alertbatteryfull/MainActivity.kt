@@ -10,8 +10,6 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
-import android.os.VibrationEffect
-import android.os.Vibrator
 import android.provider.Settings
 import android.view.View
 import android.widget.Button
@@ -113,32 +111,19 @@ class MainActivity : Activity() {
             }
         }
 
-        // INTERRUPTOR DE LA VIBRACIÓN NATIVA CON PULSO DE PRUEBA OPTIMIZADO
-        switchVibrate.setOnCheckedChangeListener { _, isChecked -> 
-            // Guardamos la preferencia en el almacenamiento interno
+        // INTERRUPTOR DE LA VIBRACIÓN: Guarda la preferencia y ejecuta una prueba de vibración desde AudioService.
+        switchVibrate.setOnCheckedChangeListener { _, isChecked ->
             savePref("vibrate", isChecked)
-            
-            // Si el usuario enciende la vibración con el dedo, hacemos latir el motor de hardware
+
             if (isChecked) {
-                // Accedemos al chip haptico para la vibracion
-                (getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator)?.let { vibrator ->
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        // Creamos los atributos de audio indicando que es una alarma de notificación avanzada
-                        val audioAttributes = android.media.AudioAttributes.Builder()
-                            .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_DELAYED)
-                            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                            .build()
-                        // Enviamos el efecto de vibración optimizado junto con sus atributos nativos
-                        vibrator.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE), audioAttributes)
-                    } else {
-                        // Versión de rescate para asegurar retrocompatibilidad en dispositivos antiguos
-                        @Suppress("DEPRECATION")
-                        vibrator.vibrate(200)
-                    }
+                val vibrationIntent = Intent(this, AudioService::class.java).apply {
+                    // Solicita exclusivamente una vibración de prueba.
+                    action = AudioService.ACTION_VIBRATION_ALERT
                 }
+                startService(vibrationIntent)
             }
         }
-
+        
         // DESLIZADOR DE VOLUMEN OPTIMIZADO
         seekVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {

@@ -88,27 +88,35 @@ class AudioService : Service() {
                 if (shouldVibrate) {
                     executeVibrationAlert()
                 }
-    
-                // 3. Accedemos al gestor de audio nativo del teléfono
+
+                // Obtiene el gestor de audio del sistema.
                 val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                // 4. Consultamos el volumen multimedia (música) actual del dispositivo del usuario
-                val originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
-    
-                // Si el usuario tiene el volumen multimedia del móvil a cero (modo noche),
-                // respetamos el silencio absoluto, no reproducimos acústica y detenemos el servicio de inmediato.
-                if (originalVolume == 0) {
-                    stopSelf() // El servicio se auto-destruye y se borra de la RAM al instante
+
+                // Comprueba si esta orden también debe reproducir sonido.
+                // Si no debe sonar, la vibración ya se habrá ejecutado y terminamos.
+                val shouldPlaySound = intent.getBooleanExtra("play_sound", true)
+                if (!shouldPlaySound) {
+                    stopSelf(startId)
                     return START_NOT_STICKY
                 }
-    
-                // Evitamos que el bucle repetitivo interrumpa si la app ya está hablando
+
+                // Consulta el volumen multimedia actual.
+                val originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+
+                // El volumen cero impide el sonido, pero no la vibración.
+                if (originalVolume == 0) {
+                    stopSelf(startId)
+                    return START_NOT_STICKY
+                }
+
+                // Evita iniciar otra locución mientras la anterior sigue activa.
                 if (soundType == 0 && isSpeaking) {
                     return START_STICKY
                 }
-                
-                // 5. Si el volumen del móvil es mayor que cero, ejecutamos la acción correspondiente
+
+                // Ejecuta el sonido solicitado.
                 when (soundType) {
-                    0 -> {    // Lanzamos Voz
+                    0 -> {    // Voz
                         // Si el motor de Google ya está listo en el sistema, habla inmediatamente
                         if (isTtsReady) {
                             isSpeaking = true
@@ -118,10 +126,15 @@ class AudioService : Service() {
                             pendingIntent = intent
                         }
                     }
+
                     1 -> {    // Lanzar el Pitido (Beep)
                         executeBeepAlert(am, originalVolume, targetVolume)
                     }
-                    else -> stopSelf() // Por seguridad, si llega un tipo desconocido, nos apagamos
+
+                    // El tipo 2 es silencioso: no reproduce sonido.
+                    2 -> stopSelf(startId)
+
+                    else -> stopSelf(startId)    // Por seguridad, si llega un tipo desconocido, nos apagamos
                 }
             } else {
                 // Si el servicio se inició por error sin datos, se apaga de inmediato para ahorrar energía

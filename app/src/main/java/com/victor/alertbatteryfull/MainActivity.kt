@@ -432,12 +432,12 @@ class MainActivity : Activity() {
     private fun loadPreferences() {
         with(prefs) {
             switchEnable.isChecked = getBoolean("enabled", false)
-            switchLoop.isChecked = getBoolean("loop", true)
-            switchVibrate.isChecked = getBoolean("vibrate", true)
+            switchLoop.isChecked = getBoolean("loop", false)
+            switchVibrate.isChecked = getBoolean("vibrate", false)
             switchSoundDelay.isChecked = getBoolean("sound_delay", false)
             switchIgnoreSilence.isChecked = getBoolean("ignore_silence", false)
 
-            val isCustomVolume = getBoolean("custom_volume", true)
+            val isCustomVolume = getBoolean("custom_volume", false)
             switchCustomVolume.isChecked = isCustomVolume
             updateCustomVolumeVisibility(isCustomVolume)
             

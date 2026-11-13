@@ -32,19 +32,54 @@ class AudioService : Service() {
             if (status == TextToSpeech.SUCCESS) {
                 isTtsReady = true
                 tts?.language = Locale.getDefault()
-                val audioAttributes = AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .build()
-                tts?.setAudioAttributes(audioAttributes)
 
                 // Si llegó una orden de voz mientras el motor se estaba encendiendo, la procesamos inmediatamente ahora
+                // Recupera y procesa la orden de voz que estaba pendiente.
                 pendingIntent?.let { intent ->
+
                     val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                    val originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
-                    val targetVolume = intent.getIntExtra("volume", 80)
-                    val targetPct = intent.getIntExtra("target_pct", 100)
-                    executeVoiceAlert(am, originalVolume, targetVolume, targetPct)
+
+                    val useCustomVolume =
+                        intent.getBooleanExtra("custom_volume", false)
+
+                    val ignoreSilence =
+                        intent.getBooleanExtra("ignore_silence", false)
+
+                    // Selecciona el canal correspondiente.
+                    val streamType = if (ignoreSilence) {
+                        AudioManager.STREAM_ALARM
+                    } else {
+                        AudioManager.STREAM_NOTIFICATION
+                    }
+
+                    val originalVolume = am.getStreamVolume(streamType)
+
+                    // Vuelve a comprobar el silencio antes de reproducir.
+                    val soundBlocked = if (ignoreSilence) {
+                        !useCustomVolume && originalVolume == 0
+                    } else {
+                        am.ringerMode != AudioManager.RINGER_MODE_NORMAL ||
+                        originalVolume == 0
+                    }
+
+                    if (soundBlocked) {
+                        stopSelf()
+                    } else {
+                        val targetVolume = intent.getIntExtra("volume", 80)
+                        val targetPct = intent.getIntExtra("target_pct", 100)
+
+                        isSpeaking = true
+
+                        executeVoiceAlert(
+                            am,
+                            originalVolume,
+                            targetVolume,
+                            targetPct,
+                            streamType,
+                            useCustomVolume
+                        )
+                    }
+
                     pendingIntent = null
                 }
             }
@@ -72,19 +107,37 @@ class AudioService : Service() {
             // Obtiene el gestor de audio del sistema.
             val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
-            // Comprueba si esta orden también debe reproducir sonido.
-            // Si no debe sonar, la vibración ya se habrá ejecutado y terminamos.
-            val shouldPlaySound = intent.getBooleanExtra("play_sound", true)
-            if (!shouldPlaySound) {
+            // Recupera las preferencias de volumen y modo silencio.
+            val useCustomVolume = intent.getBooleanExtra("custom_volume", false)
+            val ignoreSilence = intent.getBooleanExtra("ignore_silence", false)
+
+            // Selecciona el canal de notificaciones o el de alarmas.
+            val streamType = if (ignoreSilence) {
+                AudioManager.STREAM_ALARM
+            } else {
+                AudioManager.STREAM_NOTIFICATION
+            }
+
+            // Guarda el volumen original del canal seleccionado.
+            val originalVolume = am.getStreamVolume(streamType)
+
+            // Si no se permite ignorar el silencio, respeta el modo silencio/vibración
+            // y el volumen de notificaciones a cero.
+            if (
+                !ignoreSilence &&
+                (
+                    am.ringerMode != AudioManager.RINGER_MODE_NORMAL ||
+                    originalVolume == 0
+                )
+            ) {
                 stopSelf(startId)
                 return START_NOT_STICKY
             }
 
-            // Consulta el volumen multimedia actual.
-            val originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
-
-            // El volumen cero impide el sonido, pero no la vibración.
-            if (originalVolume == 0) {
+            // Si se ignora el silencio, utiliza el canal de alarmas.
+            // Si el volumen personalizado está desactivado, respeta también
+            // el volumen configurado por el usuario para las alarmas.
+            if (ignoreSilence && !useCustomVolume && originalVolume == 0) {
                 stopSelf(startId)
                 return START_NOT_STICKY
             }
@@ -100,7 +153,7 @@ class AudioService : Service() {
                     // Si el motor de Google ya está listo en el sistema, habla inmediatamente
                     if (isTtsReady) {
                         isSpeaking = true
-                        executeVoiceAlert(am, originalVolume, targetVolume, targetPct)
+                        executeVoiceAlert(am, originalVolume, targetVolume, targetPct, streamType, useCustomVolume)
                     } else {
                         // Si el motor aún se está conectando de fondo, guardamos este intento para lanzarlo al revivir
                         pendingIntent = intent
@@ -108,7 +161,7 @@ class AudioService : Service() {
                 }
 
                 1 -> {    // Lanzar el Pitido (Beep)
-                    executeBeepAlert(am, originalVolume, targetVolume)
+                    executeBeepAlert(am, originalVolume, targetVolume, streamType, useCustomVolume)
                 }
 
                 // El tipo 2 es silencioso: no reproduce sonido.
@@ -125,89 +178,136 @@ class AudioService : Service() {
         return START_STICKY
     }
 
-    private fun executeVoiceAlert(am: AudioManager, originalVolume: Int, targetVolume: Int, pct: Int) {
-        // Construimos de forma dinámica la frase exacta según el porcentaje objetivo configurado
+    // Reproduce la locución utilizando el canal y volumen seleccionados.
+    private fun executeVoiceAlert(
+        am: AudioManager,
+        originalVolume: Int,
+        targetVolume: Int,
+        pct: Int,
+        streamType: Int,
+        useCustomVolume: Boolean
+    ) {
+        // Construye el mensaje según el porcentaje objetivo.
         val message = if (pct == 100) {
             getString(R.string.msg_voice_full)
         } else {
             getString(R.string.msg_voice_custom, pct)
         }
-    
-        // Subimos el volumen del móvil justo en el milisegundo antes de hablar
-        aplicarVolumenObjetivo(am, targetVolume)
-    
+
+        // Si se utiliza volumen personalizado, prepara el canal al máximo.
+        if (useCustomVolume) {
+            aplicarVolumenMaximo(am, streamType)
+        }
+
         tts?.let { t ->
-            // Creamos una función interna/reutilizable justo antes del escuchador para restaurar el sonido original
-            val finalizarAvisoConRetraso = Runnable {
+
+            // Configura la categoría de audio correspondiente al canal elegido.
+            val usage = if (streamType == AudioManager.STREAM_ALARM) {
+                AudioAttributes.USAGE_ALARM
+            } else {
+                AudioAttributes.USAGE_NOTIFICATION
+            }
+
+            t.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(usage)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+            )
+
+            // Define una única finalización para restaurar el volumen.
+            val finalizarAviso = Runnable {
                 try {
-                    // Devolvemos el móvil al volumen que tenía el usuario antes del aviso
-                    am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
-                } catch (e: Exception) {}
+                    am.setStreamVolume(streamType, originalVolume, 0)
+                } catch (e: Exception) {
+                }
+
                 isSpeaking = false
                 stopSelf()
             }
 
-            // 6. ESCUCHADOR PROFESIONAL: El motor nos avisará en el milisegundo exacto en que termine la frase
-            t.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
-                override fun onStart(utteranceId: String?) {}
-                
-                override fun onDone(utteranceId: String?) {
-                    mainHandler.postDelayed(finalizarAvisoConRetraso, 300)
-                }
+            t.setOnUtteranceProgressListener(
+                object : android.speech.tts.UtteranceProgressListener() {
 
-                @Deprecated("Inutilizado en niveles de API modernos, pero obligatorio de declarar")
-                override fun onError(utteranceId: String?) {
-                    mainHandler.postDelayed(finalizarAvisoConRetraso, 300)
-                }
+                    override fun onStart(utteranceId: String?) {}
 
-                override fun onStop(utteranceId: String?, interrupted: Boolean) {
-                    super.onStop(utteranceId, interrupted)
-                    mainHandler.postDelayed(finalizarAvisoConRetraso, 300)
-                }
-            })
+                    override fun onDone(utteranceId: String?) {
+                        mainHandler.postDelayed(finalizarAviso, 300)
+                    }
 
-            // 7. Empaquetamos el ID de la alerta exigido por Android 14+ para sincronizar el escuchador
-            val params = Bundle().apply {
-                putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "BatteryAlertID")
-                // Pasamos el volumen seleccionado convertido a la escala flotante nativa (0.0 a 1.0)
-                putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, targetVolume / 100f)
+                    @Deprecated("Método requerido por la API")
+                    override fun onError(utteranceId: String?) {
+                        mainHandler.postDelayed(finalizarAviso, 300)
+                    }
+
+                    override fun onStop(utteranceId: String?, interrupted: Boolean) {
+                        super.onStop(utteranceId, interrupted)
+                        mainHandler.postDelayed(finalizarAviso, 300)
+                    }
+                }
+            )
+
+            // El volumen TTS es el porcentaje personalizado o el máximo normal.
+            val volume = if (useCustomVolume) {
+                targetVolume.coerceIn(0, 100) / 100f
+            } else {
+                1f
             }
 
-            // 8. Ordenamos al sintetizador de voz que reproduzca el mensaje
+            val params = Bundle().apply {
+                putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, volume)
+            }
+
             t.speak(message, TextToSpeech.QUEUE_FLUSH, params, "BatteryAlertID")
         }
     }
-
-    private fun executeBeepAlert(am: AudioManager, originalVolume: Int, targetVolume: Int) {
-        // Declaramos la variable fuera del bloque para poder liberarla al final pase lo que pase
-        var toneGen: ToneGenerator? = null
-        try {
-            // Bloque interno para intentar ajustar el volumen multimedia al nivel deseado (subimos el volumen del sistema multimedia justo antes de reproducir el pitido)
-            aplicarVolumenObjetivo(am, targetVolume)
     
-            // Inicializamos el generador de tonos y emitimos un pitido de hardware de 250ms
-            toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
+        // Reproduce el pitido usando el canal y volumen seleccionados.
+    private fun executeBeepAlert(
+        am: AudioManager,
+        originalVolume: Int,
+        targetVolume: Int,
+        streamType: Int,
+        useCustomVolume: Boolean
+    ) {
+        var toneGen: ToneGenerator? = null
+
+        try {
+            // Prepara el canal al máximo si se ha elegido volumen personalizado.
+            if (useCustomVolume) {
+                aplicarVolumenMaximo(am, streamType)
+            }
+
+            // Aplica el porcentaje personalizado o el volumen máximo del tono.
+            val toneVolume = if (useCustomVolume) {
+                targetVolume.coerceIn(0, 100)
+            } else {
+                100
+            }
+
+            toneGen = ToneGenerator(streamType, toneVolume)
             toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 250)
 
         } catch (e: Exception) {
-                // Si hay un fallo físico con el chip de sonido, el catch evita que la aplicación se cierre (crash)
-    
+            // Evita que un error de audio cierre el servicio.
         } finally {
-            // El bloque FINALLY se ejecuta SIEMPRE, garantizando que el teléfono vuelva a la normalidad
+
+            val generatorToRelease = toneGen
+
             mainHandler.postDelayed({
                 try {
-                    // Devolvemos el móvil al volumen multimedia original que tenía el usuario
-                    am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
-                } catch (e: Exception) {}
-                
+                    // Restaura el volumen original del sistema.
+                    am.setStreamVolume(streamType, originalVolume, 0)
+                } catch (e: Exception) {
+                }
+
                 try {
-                    // Liberamos los controladores físicos de audio para que el chip de sonido entre en reposo
-                    toneGen?.release()
-                } catch (e: Exception) {}
-                
-                // Destruimos el servicio por completo para que no consuma memoria RAM en segundo plano
+                    generatorToRelease?.release()
+                } catch (e: Exception) {
+                }
+
                 stopSelf()
-            }, 300) // Damos un margen de 300 milisegundos para asegurar que el pitido termine de sonar completo
+            }, 300)
         }
     }
 
@@ -250,12 +350,17 @@ class AudioService : Service() {
         return null
     }
 
-    private fun aplicarVolumenObjetivo(am: AudioManager, targetVolume: Int) {
+    // Establece temporalmente el canal seleccionado en su volumen máximo.
+    private fun aplicarVolumenMaximo(
+        am: AudioManager,
+        streamType: Int
+    ) {
         try {
-            val maxMusicVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            val computedVol = (targetVolume * maxMusicVol) / 100
-            am.setStreamVolume(AudioManager.STREAM_MUSIC, computedVol, 0)
-        } catch (e: Exception) {}
+            val maxVolume = am.getStreamMaxVolume(streamType)
+            am.setStreamVolume(streamType, maxVolume, 0)
+        } catch (e: Exception) {
+            // Si Android no permite cambiar el volumen, evita el cierre del servicio.
+        }
     }
 
 }

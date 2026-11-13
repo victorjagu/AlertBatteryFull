@@ -179,7 +179,9 @@ class MainActivity : Activity() {
                 val serviceIntent = Intent(this@MainActivity, AudioService::class.java).apply {
                     putExtra("sound_type", 1)               
                     putExtra("volume", currentProgress)   
-                    putExtra("target_pct", seekPercentage.progress)           
+                    putExtra("target_pct", seekPercentage.progress)
+                    putExtra("custom_volume", switchCustomVolume.isChecked)
+                    putExtra("ignore_silence", switchIgnoreSilence.isChecked)
                 }
                 startService(serviceIntent)
             }
@@ -204,6 +206,8 @@ class MainActivity : Activity() {
                     putExtra("sound_type", type)             // Volumen seleccionado en la barra
                     putExtra("volume", currentVolume)        // Volumen seleccionado en la barra
                     putExtra("target_pct", currentTargetPct) // Porcentaje seleccionado en la barra
+                    putExtra("custom_volume", switchCustomVolume.isChecked)
+                    putExtra("ignore_silence", switchIgnoreSilence.isChecked)
                 }
                 startService(serviceIntent)
                 

@@ -94,6 +94,8 @@ class BatteryReceiver : BroadcastReceiver() {
         val useVibrate = prefs.getBoolean("vibrate", true) // Saber si quiere vibración
         val targetVolume = prefs.getInt("volume", 80)     // El volumen elegido en la barra
         val useSoundDelay = prefs.getBoolean("sound_delay", false) // El retardo de sonido de 1 minuto
+        val useCustomVolume = prefs.getBoolean("custom_volume", false)    // Recupera si se utiliza volumen personalizado.
+        val ignoreSilence = prefs.getBoolean("ignore_silence", false)    // Recupera si el sonido debe ignorar el modo silencio.
 
         // 1. Pintamos de inmediato la notificación visual nativa y eficiente que optimizamos
         NotificationHelper.showNotification(context, targetPct)
@@ -115,7 +117,9 @@ class BatteryReceiver : BroadcastReceiver() {
                     targetVolume,
                     targetPct,
                     useVibrate,
-                    soundType != 2 && isAudioAllowedToPlay
+                    soundType != 2 && isAudioAllowedToPlay,
+                    useCustomVolume,
+                    ignoreSilence
                 )
 
                 // Si el bucle sigue activo, volvemos a programar esta comprobación en 10 segundos
@@ -139,7 +143,9 @@ class BatteryReceiver : BroadcastReceiver() {
                         targetVolume,
                         targetPct,
                         useVibrate,
-                        soundType != 2 && isAudioAllowedToPlay
+                        soundType != 2 && isAudioAllowedToPlay,
+                        useCustomVolume,
+                        ignoreSilence
                     )
                 }
             }, 60000) // Retardo de 60 segundos exactos
@@ -202,7 +208,9 @@ class BatteryReceiver : BroadcastReceiver() {
         targetVolume: Int,
         targetPct: Int,
         shouldVibrate: Boolean,
-        shouldPlaySound: Boolean
+        shouldPlaySound: Boolean,
+        useCustomVolume: Boolean,
+        ignoreSilence: Boolean
     ) {
         val serviceIntent = Intent(context, AudioService::class.java).apply {
             putExtra("sound_type", soundType)
@@ -210,6 +218,8 @@ class BatteryReceiver : BroadcastReceiver() {
             putExtra("target_pct", targetPct)
             putExtra("vibrate", shouldVibrate)
             putExtra("play_sound", shouldPlaySound)
+            putExtra("custom_volume", useCustomVolume)
+            putExtra("ignore_silence", ignoreSilence)
         }
 
         try {

@@ -4,13 +4,9 @@ import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.media.AudioManager
 import android.os.BatteryManager
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.os.Vibrator
-import android.os.VibratorManager
 
 class BatteryReceiver : BroadcastReceiver() {
 
@@ -98,7 +94,8 @@ class BatteryReceiver : BroadcastReceiver() {
         val useVibrate = prefs.getBoolean("vibrate", true) // Saber si quiere vibración
         val targetVolume = prefs.getInt("volume", 80)     // El volumen elegido en la barra
         val useSoundDelay = prefs.getBoolean("sound_delay", false) // El retardo de sonido de 1 minuto
-        val ignoreSilence = prefs.getBoolean("ignore_silence", false)    //ignorar el modo silencio/vibracion del movil
+        val useCustomVolume = prefs.getBoolean("custom_volume", false)    // Recupera si se utiliza volumen personalizado.
+        val ignoreSilence = prefs.getBoolean("ignore_silence", false)    // Recupera si el sonido debe ignorar el modo silencio.
 
         // 1. Pintamos de inmediato la notificación visual nativa y eficiente que optimizamos
         NotificationHelper.showNotification(context, targetPct)
@@ -109,18 +106,21 @@ class BatteryReceiver : BroadcastReceiver() {
         }
         loopHandler?.removeCallbacksAndMessages(null)
         
-        var isAudioAllowedToPlay = ! useSoundDelay
+        var isAudioAllowedToPlay = !useSoundDelay
 
         loopRunnable = object : Runnable {
             override fun run() {
-                // Si el usuario activó la vibración, ejecutamos el latido de hardware de forma atómica
-                if (useVibrate) triggerVibration(context)
-
-                // Si el tipo de sonido NO es silencioso (tipo 2) y la llave de tiempo permite sonar
-                if (soundType != 2 && isAudioAllowedToPlay) {
-                    // Respetamos estrictamente si el móvil general está con el ringer en modo normal
-                    triggerAudioService(context, soundType, targetVolume, targetPct)
-                }
+                // Envía una única orden al servicio para gestionar la alerta y su vibración.
+                triggerAudioService(
+                    context,
+                    soundType,
+                    targetVolume,
+                    targetPct,
+                    useVibrate,
+                    soundType != 2 && isAudioAllowedToPlay,
+                    useCustomVolume,
+                    ignoreSilence
+                )
 
                 // Si el bucle sigue activo, volvemos a programar esta comprobación en 10 segundos
                 if (useLoop && isAlertActive) {
@@ -137,20 +137,18 @@ class BatteryReceiver : BroadcastReceiver() {
             loopHandler?.postDelayed({
                 if (isAlertActive) {
                     isAudioAllowedToPlay = true
-                    triggerAudioService(context, soundType, targetVolume, targetPct)
+                    triggerAudioService(
+                        context,
+                        soundType,
+                        targetVolume,
+                        targetPct,
+                        useVibrate,
+                        soundType != 2 && isAudioAllowedToPlay,
+                        useCustomVolume,
+                        ignoreSilence
+                    )
                 }
             }, 60000) // Retardo de 60 segundos exactos
-        }
-    }
-
-    private fun triggerVibration(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
-            vibratorManager?.defaultVibrator?.vibrate(android.os.VibrationEffect.createOneShot(400, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
-        } else {
-            @Suppress("DEPRECATION")
-            val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-            vibrator?.vibrate(400)
         }
     }
 
@@ -203,22 +201,32 @@ class BatteryReceiver : BroadcastReceiver() {
         monitoringHandler?.post(checkRunnable)
     }
 
-    private fun triggerAudioService(context: Context, soundType: Int, targetVolume: Int, targetPct: Int) {
-        val prefs = context.getSharedPreferences("prefs_battery", Context.MODE_PRIVATE)
-        val ignoreSilence = prefs.getBoolean("ignore_silence", false)
-        val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    // Envía al servicio una única orden con la configuración de sonido y vibración.
+    private fun triggerAudioService(
+        context: Context,
+        soundType: Int,
+        targetVolume: Int,
+        targetPct: Int,
+        shouldVibrate: Boolean,
+        shouldPlaySound: Boolean,
+        useCustomVolume: Boolean,
+        ignoreSilence: Boolean
+    ) {
+        val serviceIntent = Intent(context, AudioService::class.java).apply {
+            putExtra("sound_type", soundType)
+            putExtra("volume", targetVolume)
+            putExtra("target_pct", targetPct)
+            putExtra("vibrate", shouldVibrate)
+            putExtra("play_sound", shouldPlaySound)
+            putExtra("custom_volume", useCustomVolume)
+            putExtra("ignore_silence", ignoreSilence)
+        }
 
-        if (ignoreSilence || am.ringerMode == AudioManager.RINGER_MODE_NORMAL) {
-            try {
-                // NUEVO: Lanzamos la orden relámpago hacia nuestro AudioService especialista
-                val serviceIntent = Intent(context, AudioService::class.java).apply {
-                    putExtra("sound_type", soundType)   // Le pasamos el tipo (Voz o Beep)
-                    putExtra("volume", targetVolume)     // Le pasamos el volumen de la barra
-                    putExtra("target_pct", targetPct)   // El porcentaje real de carga
-                    putExtra("is_test", false)          // Indicamos que es la alarma real, NO una prueba
-                }
-                context.startService(serviceIntent)
-            } catch (e: Exception) {}
+        try {
+            context.startService(serviceIntent)
+        } catch (e: Exception) {
+            // Evita que un fallo al iniciar el servicio cierre el receptor.
         }
     }
+
 }
